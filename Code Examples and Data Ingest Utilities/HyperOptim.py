@@ -13,7 +13,8 @@ from hyperas import optim
 from hyperas.distributions import choice, uniform
 import tensorflow as tf
 from keras.utils import multi_gpu_model
-BASEDIR = "/data2/army_challenge/training_data/"
+
+
 def data():
     """
     Data providing function:
@@ -21,6 +22,7 @@ def data():
     This function is separated from create_model() so that hyperopt
     won't reload data for each evaluation run.
     """
+    BASEDIR = "/data2/army_challenge/training_data/"
     data_file = BASEDIR+"training_data_chunk_0.pkl"
     data = LoadModRecData(data_file, .9, .1, 0.)
     test_file = BASEDIR+"training_data_chunk_14.pkl"
@@ -64,7 +66,7 @@ def create_model(x_train, y_train, x_test, y_test):
         if {{choice([0,1])}} >0:
                 rshape = model.output_shape
                 model.add(Reshape([rshape[2],rshape[3]]))
-                model.add(LSTM({{choice([64,128])}}, return_sequences=True, name='lstm1')
+                model.add(LSTM({{choice([64,128])}}, return_sequences=True, name='lstm1'))
              
         model.add(Flatten())
         model.add(Dense({{choice([64, 128])}}, activation='relu', init='he_normal', name="dense1"))
