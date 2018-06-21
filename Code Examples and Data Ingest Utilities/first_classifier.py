@@ -17,7 +17,7 @@ import pickle, random, sys, keras
 from data_loader import *
 import tensorflow as tf
 from keras.utils import multi_gpu_model
-
+from keras.layers import Conv2D
 
 
 
@@ -39,10 +39,10 @@ dr = 0.5 # dropout rate (%)
 model = models.Sequential()
 model.add(Reshape(in_shp+[1], input_shape=in_shp))
 model.add(ZeroPadding2D((0, 2)))
-model.add(Convolution2D(256, 1, 3, border_mode='valid', activation="relu", name="conv1", init='glorot_uniform'))
+model.add(Conv2D(filters = 256, kernel_size = [1,3], padding = 'valid', activation = 'relu', name = 'conv1', kernel_initializer = 'glorot_uniform'))
 model.add(Dropout(dr))
 model.add(ZeroPadding2D((0, 2)))
-model.add(Convolution2D(80, 2, 3, border_mode="valid", activation="relu", name="conv2", init='glorot_uniform'))
+model.add(Conv2D(filters = 80, kernel_size = [2,3], padding = 'valid', activation = 'relu', name = 'conv2', kernel_initializer = 'glorot_uniform'))
 model.add(Dropout(dr))
 model.add(Flatten())
 model.add(Dense(256, activation='relu', init='he_normal', name="dense1"))
