@@ -13,7 +13,7 @@ from hyperas import optim
 from hyperas.distributions import choice, uniform
 import tensorflow as tf
 from keras.utils import multi_gpu_model
-
+import keras
 
 def data():
     """
@@ -48,7 +48,7 @@ def create_model(x_train, y_train, x_test, y_test):
     """
     classes = list(range(24))
     in_shp = [2,1024]
-    with tf.device("/cpu:0"):
+    if True:
         model = models.Sequential()
         model.add(Reshape(in_shp+[1], input_shape=in_shp))
         model.add(ZeroPadding2D((0, 2)))
@@ -59,7 +59,7 @@ def create_model(x_train, y_train, x_test, y_test):
         model.add(Dropout({{uniform(0, 1)}}))
         # If we choose 'four', add an additional fourth layer
         if {{choice(['three', 'four'])}} == 'four':
-            model.add(Convolution2D({{choice([64, 128, 256])}}, kernel_size=(1,3), strides=(1,2), border_mode="valid", activation="relu", name="conv3", init='glorot_uniform'))
+            model.add(Convolution2D({{choice([64, 128])}}, kernel_size=(1,3), strides=(1,2), border_mode="valid", activation="relu", name="conv3", init='glorot_uniform'))
             # We can also choose between complete sets of layers
             model.add({{choice([Dropout(0.5), Activation('linear')])}})
             #model.add(Activation('relu'))
@@ -69,13 +69,13 @@ def create_model(x_train, y_train, x_test, y_test):
                 model.add(LSTM({{choice([64,128])}}, return_sequences=True, name='lstm1'))
              
         model.add(Flatten())
-        model.add(Dense({{choice([64, 128])}}, activation='relu', init='he_normal', name="dense1"))
+        model.add(Dense({{choice([32, 64, 128])}}, activation='relu', init='he_normal', name="dense1"))
         model.add(Dropout({{uniform(0, 1)}}))
         model.add(Dense( len(classes), init='he_normal', name="dense2" ))
         model.add(Activation('softmax'))
         model.add(Reshape([len(classes)]))
         model.summary()
-    model = multi_gpu_model(model, gpus=2)
+    #model = multi_gpu_model(model, gpus=2)
 
     model.compile(loss='categorical_crossentropy', metrics=['accuracy'],
                   optimizer='adam')
@@ -84,7 +84,10 @@ def create_model(x_train, y_train, x_test, y_test):
               batch_size={{choice([128, 256])}},
               epochs=20,
               verbose=2,
-              validation_data=(x_test, y_test))
+              validation_data=(x_test[:1000], y_test[:1000]),
+              callbacks = [
+                  keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, verbose=0, mode='auto')
+              ])
     score, acc = model.evaluate(x_test, y_test, verbose=0)
     print('Test accuracy:', acc)
     return {'loss': -acc, 'status': STATUS_OK, 'model': model}
