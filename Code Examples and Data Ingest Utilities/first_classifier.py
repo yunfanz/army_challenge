@@ -73,7 +73,7 @@ data.modTypes
 
 
 filepath = '/tmp/morads/convmodrecnets_CNN2_0.5.wts.h5'
-train_batch_size, number_of_epochs = 256, 1
+train_batch_size, number_of_epochs = 256, 20
 tsteps = data.train_idx.size//train_batch_size
 vsteps = data.val_idx.size//train_batch_size
 train_batches = data.batch_iter(data.train_idx, train_batch_size, number_of_epochs, use_shuffle=True)
