@@ -93,4 +93,5 @@ history = model.fit_generator(train_batches,
 # model.load_weights(filepath)
 
 
-model.save('mod_classifier.h5')
+model.save('mod_classifier01.h5')
+
