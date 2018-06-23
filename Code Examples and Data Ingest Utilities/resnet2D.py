@@ -205,14 +205,15 @@ class ResnetBuilder(object):
         block_fn = _get_block(block_fn)
 
         input = Input(shape=input_shape)
-        conv1 = _conv_bn_relu(filters=64, kernel_size=(5, 5), strides=(2, 2))(input)
+        conv1 = _conv_bn_relu(filters=64, kernel_size=(3, 3), strides=(1, 1))(input)
         pool1 = conv1#MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding="same")(conv1)
 
         block = pool1
         filters = 64
         for i, r in enumerate(repetitions):
             block = _residual_block(block_fn, filters=filters, repetitions=r, is_first_layer=(i == 0))(block)
-            filters *= 2
+            if filters<256:
+                filters *= 2
 
         # Last activation
         block = _bn_relu(block)
@@ -228,6 +229,10 @@ class ResnetBuilder(object):
         model = Model(inputs=input, outputs=dense)
         return model
 
+    @staticmethod
+    def build_resnet_sm(input_shape, num_outputs):
+        return ResnetBuilder.build(input_shape, num_outputs, basic_block, [1, 1, 3, 2])
+    
     @staticmethod
     def build_resnet_18(input_shape, num_outputs):
         return ResnetBuilder.build(input_shape, num_outputs, basic_block, [2, 2, 2, 2])
