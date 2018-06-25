@@ -161,9 +161,16 @@ class async_SHA:
             
             
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Asynchronous hyperoptim')
+    parser.add_argument('--ngpu', type=int, default=2,
+                    help='number of available gpus')
+    parser.add_argument('--data_dir', dest='data_dir', type=str)
+    args = parser.parse_args()
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
-                                         BASEDIR="/home/mshefa/training_data/",
+                                         BASEDIR=args.data_dir,
                                          files=[0])
     data = (x_train, y_train, x_val, y_val)
-    a = async_SHA(data, ngpu=2)
+    a = async_SHA(data, ngpu=args.ngpu)
     a.run()
