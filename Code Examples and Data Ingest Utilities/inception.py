@@ -71,8 +71,8 @@ def get_pdict(mode='orig'):
         pdict['dr'] = 0.6
     elif mode == 'prior':
         pdict['depths'] = np.random.randint(low=0, high=4, size=7)
-        pdict['depths'][0,1,6] = np.random.randint(low=1, high=3, size=3)
-        pdict['features'] =  np.random.randint(low=0, high=5, size=8)
+        pdict['depths'][[0,1,6]] = np.random.randint(low=1, high=3, size=3)
+        pdict['features'] =  np.random.randint(low=1, high=4, size=8)
         pdict['dr'] = np.random.uniform(low=0.2, high=0.8, size=1)[0]
     return pdict
 

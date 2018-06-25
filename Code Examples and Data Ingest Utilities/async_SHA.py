@@ -11,7 +11,8 @@ class TrainWorker(Process):
         self.result_q = result_q
         self.stop_event = stop_event
         self.name = name
-        self.x_train, self.y_train, self.x_test, self.y_test = data
+        self.x_train, self.y_train, self.x_val, self.y_val = data
+        self.train_size, self.val_size = self.x_train.shape[0], self.x_val.shape[0]
 
     def train_model(self, theta, k, resource):
         import keras
@@ -26,13 +27,25 @@ class TrainWorker(Process):
         from inception import googleNet, get_pdict
         
         
-        batch_size = 128
+        
         num_classes = 24
-        epochs = int(resource)
+        if resource < 1:
+            train_size, val_size = int(resource*self.train_size), int(resource*self.val_size)
+            train_idx = np.random.choice(range(self.train_size), train_size)
+            val_idx = np.random.choice(range(self.val_size), val_size)
+            x_train, y_train = self.x_train[train_idx], self.y_train[train_idx]
+            x_val, y_val = self.x_val[val_idx], self.y_val[val_idx]
+        else:
+            x_train,y_train,x_val, y_val = self.x_train, self.y_train, self.x_val, self.y_val
+        epochs = max(1, int(resource))
         
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
         os.environ["CUDA_VISIBLE_DEVICES"] = str(self.name)
-        print("starting on", self.name, 'rung', k, 'epochs', epochs)
+        if self.name == 2:
+            batch_size = 128
+        else:
+            batch_size = 256
+        print("starting on", self.name, 'rung', k, 'epochs', epochs, 'train_size', x_train.shape[0])
         
         input_img = Input(shape=(1024,2))
         out = googleNet(input_img,data_format='channels_last', pdict=theta)
@@ -43,12 +56,12 @@ class TrainWorker(Process):
                       optimizer=keras.optimizers.Adadelta(),
                       metrics=['accuracy'])
         #print('model compiled')
-        model.fit(self.x_train, self.y_train,
+        model.fit(x_train, y_train,
                   batch_size=batch_size,
                   epochs=epochs,
                   verbose=0,
-                  validation_data=(self.x_test, self.y_test))
-        score = model.evaluate(self.x_test, self.y_test, verbose=0)
+                  validation_data=(x_val, y_val))
+        score = model.evaluate(self.x_val, self.y_val, verbose=0)
         return score
 
     def run(self):
@@ -59,7 +72,7 @@ class TrainWorker(Process):
                 #print("Received task", self.name)
                 idx, theta, k, resource = self.task_q.get()
                 score = self.train_model(theta, k, resource)
-                print('putting result', (idx, theta, k))
+                print('putting result', (idx, k))
                 self.result_q.put((idx, theta, k, score[0]))
                 
 class JobManager(Process):
@@ -71,22 +84,31 @@ class JobManager(Process):
         self.ladder = ladder
         self.stop_event = stop_event
         self.eta = 3
-        self.KMAX = 4
-        self.resource_min = 1
+        self.KMAX = 6
+        self.resource_min = 0.1
         self.bracket = 0
         self.idx = 0
         while not self.task_q.full():
             theta = get_pdict(mode='orig')
-            theta['dr'] = np.random.uniform(0.3, 0.7, size=1)[0]
+            if self.idx % 2 ==0 :
+                theta['dr'] = 0.4
+            if self.idx > 1:
+                theta['features'] = np.ones_like(theta['features'])
             self.task_q.put((self.idx, theta, 0,self.resource_min*self.eta**(0+self.bracket)))
             self.update_ladder(k=0)
             self.idx += 1
+            sleep(1)
             
     def update_ladder(self, k, idx=None, value=None):
         if idx is None:
             idx = self.idx
         if len(self.ladder) <= k:
             self.ladder.append({})
+            print("### New Rung Reached  ###")
+            for k, rung_dict in enumerate(self.ladder):
+                print(list(rung_dict.keys()))
+                if k == len(self.ladder)-1:
+                    print(rung_dict)
         self.ladder[k][idx] = value
 
     def get_job(self):
@@ -114,6 +136,7 @@ class JobManager(Process):
                 break
         
         if job is None:
+            #print("Nothing promotable", self.ladder[-1])
             job = (self.idx, get_pdict(mode='prior'), 0)
             self.idx += 1
         print("submit job", job)
@@ -130,9 +153,6 @@ class JobManager(Process):
                 self.update_ladder(k, idx=idx, value=(theta, loss))
                 idx, theta, k = self.get_job()
                 self.update_ladder(k, idx=idx)
-#                 print("### Updating Ladder ###")
-#                 for k, rung_dict in enumerate(self.ladder):
-#                     print("Rung#", k, rung_dict)
                 resource = self.resource_min*self.eta**(k+self.bracket)
                 self.task_q.put((idx, theta, k, resource))
                 
@@ -170,7 +190,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
                                          BASEDIR=args.data_dir,
-                                         files=[0])
+                                         files=[0,1,2,3,4])
     data = (x_train, y_train, x_val, y_val)
     a = async_SHA(data, ngpu=args.ngpu)
     a.run()
