@@ -20,6 +20,7 @@ from keras.layers import Input
 
 
 
+
 def inception(input_img, fs=[64,64,64,64,64], with_residual=False):
     tower_1 = Conv1D(fs[0], 1, padding='same', activation='relu')(input_img)
     tower_1 = Conv1D(fs[1], 3, padding='same', activation='relu')(tower_1)
@@ -31,27 +32,49 @@ def inception(input_img, fs=[64,64,64,64,64], with_residual=False):
     if with_residual and output.shape==input_img.shape:
         output = output+input_img
     return output
-def googleNet(x, data_format='channels_last'):
-    x = Conv1D(64, 7, strides=2, data_format=data_format, padding='same', activation='relu')(x)
+
+def googleNet(x, data_format='channels_last', pdict=None):
+    if pdict is None:
+        pdict = get_pdict(mode='orig')
+    m = pdict['depths']
+    f = pdict['features']
+    x = Conv1D(32*f[0], 7, strides=2, data_format=data_format, padding='same', activation='relu')(x)
     x = MaxPooling1D(3, strides=2, padding='same')(x)
-    for dep in range(2):
-        x = Conv1D(192, 3, strides=1, padding='same', activation='relu')(x)
+    for dep in range(m[0]):
+        x = Conv1D(64*f[1], 3, strides=1, padding='same', activation='relu')(x)
     x = MaxPooling1D(3, strides=2, padding='same')(x)
-    for dep in range(2):
-        x = inception(x, fs=[32,64,16,32,48])
-    for dep in range(2):
-        x = inception(x, fs=[32,64,32,64,64])
+    for dep in range(m[1]):
+        x = inception(x, fs=(np.array([48,64,16,32,32])//2*f[2]))
+    for dep in range(m[2]):
+        x = inception(x, fs=np.array([64,96,32,48,64])//2*f[3])
     x = MaxPooling1D(3, strides=2, padding='same')(x)
-    for dep in range(10):
-        x = inception(x, fs=[48,96,48,96,96], with_residual=False)
+    for dep in range(m[3]):
+        x = inception(x, fs=np.array([48,96,16,48,96])//2*f[4], with_residual=False)
+    for dep in range(m[4]):
+        x = inception(x, fs=np.array([56,112,16,48,80])//2*f[5], with_residual=False)
+    for dep in range(m[5]):
+        x = inception(x, fs=np.array([64,128,32,64,96])//2*f[6], with_residual=False)
     x = MaxPooling1D(3, strides=2, padding='same')(x)
-    for dep in range(4):
-        x = inception(x, fs=[32,64,32,64,64])
+    for dep in range(m[6]):
+        x = inception(x, fs=np.array([32,64,32,64,64])//2*f[7])
     x = GlobalAveragePooling1D()(x, keepdims=True)
-    x = Dropout(0.6)(x)
+    x = Dropout(pdict['dr'])(x)
     output = Flatten()(x)
     out    = Dense(24, activation='softmax')(output)
     return out
+
+def get_pdict(mode='orig'):
+    pdict = {}
+    if mode == 'orig':
+        pdict['depths'] = np.ones(7, dtype=np.int)*2
+        pdict['features'] =  np.ones(8, dtype=np.int)*2
+        pdict['dr'] = 0.6
+    elif mode == 'prior':
+        pdict['depths'] = np.random.randint(low=0, high=4, size=7)
+        pdict['depths'][[0,1,6]] = np.random.randint(low=1, high=3, size=3)
+        pdict['features'] =  np.random.randint(low=1, high=4, size=8)
+        pdict['dr'] = np.random.uniform(low=0.2, high=0.8, size=1)[0]
+    return pdict
 
 def evaluate(model, data_file):
     acc = {}
