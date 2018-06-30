@@ -15,7 +15,8 @@ import pickle, random, sys, keras
 from data_loader import *
 import tensorflow as tf
 from keras.utils import multi_gpu_model
-from custom_layers import GlobalAveragePooling1D, get_data
+from custom_layers import GlobalAveragePooling1D
+from utils import *
 from keras.layers import Input
 
 
