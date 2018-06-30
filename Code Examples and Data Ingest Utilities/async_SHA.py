@@ -107,7 +107,7 @@ class JobManager(Process):
             print("### New Rung Reached  ###")
             for k, rung_dict in enumerate(self.ladder):
                 print(list(rung_dict.keys()))
-                if k == len(self.ladder)-1:
+                if k == len(self.ladder)-2:
                     print(rung_dict)
         self.ladder[k][idx] = value
 
