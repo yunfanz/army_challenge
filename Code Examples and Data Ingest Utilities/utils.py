@@ -14,7 +14,7 @@ def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues, label
     plt.xlabel('Predicted label')
     
     
-def get_data(data_format='channel_last', mode='time_series', BASEDIR = "/home/mshefa/training_data/", files=[0]):
+def get_data(data_format='channel_last', mode='time_series', load_mods=None, BASEDIR = "/home/mshefa/training_data/", files=[0]):
     """
     Data providing function:
 
@@ -24,7 +24,7 @@ def get_data(data_format='channel_last', mode='time_series', BASEDIR = "/home/ms
     x_train, y_train, x_val, y_val = [], [], [], []
     for f in files:
         data_file = BASEDIR+"training_data_chunk_0.pkl"
-        data = LoadModRecData(data_file, .9, .1, 0.)
+        data = LoadModRecData(data_file, .9, .1, 0., load_mods=load_mods)
     
         x_train.append(data.signalData[data.train_idx])
         y_train.append(data.oneHotLabels[data.train_idx]) 
