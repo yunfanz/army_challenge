@@ -14,7 +14,7 @@ class TrainWorker(Process):
         self.x_train, self.y_train, self.x_val, self.y_val = data
         self.train_size, self.val_size = self.x_train.shape[0], self.x_val.shape[0]
 
-    def train_model(self, theta, k, resource):
+    def train_model(self, theta, k, resource, num_classes=5):
         import keras
         from keras.datasets import mnist
         from keras.models import Sequential
@@ -28,7 +28,7 @@ class TrainWorker(Process):
         
         
         
-        num_classes = 24
+        
         if resource < 1:
             train_size, val_size = int(resource*self.train_size), int(resource*self.val_size)
             train_idx = np.random.choice(range(self.train_size), train_size)
@@ -48,7 +48,7 @@ class TrainWorker(Process):
         print("starting on", self.name, 'rung', k, 'epochs', epochs, 'train_size', x_train.shape[0])
         
         input_img = Input(shape=(1024,2))
-        out = googleNet(input_img,data_format='channels_last', pdict=theta)
+        out = googleNet(input_img,data_format='channels_last', pdict=theta, num_classes=num_classes)
         model = Model(inputs=input_img, outputs=out)
         #model.summary()
         print(theta)
@@ -56,11 +56,13 @@ class TrainWorker(Process):
                       optimizer=keras.optimizers.Adadelta(),
                       metrics=['accuracy'])
         #print('model compiled')
-        model.fit(x_train, y_train,
-                  batch_size=batch_size,
-                  epochs=epochs,
-                  verbose=0,
-                  validation_data=(x_val, y_val))
+        for e in epochs:
+            x_train = augment(x_train)
+            model.fit(x_train, y_train,
+                      batch_size=batch_size,
+                      epochs=1,
+                      verbose=0,
+                      validation_data=(x_val, y_val))
         score = model.evaluate(self.x_val, self.y_val, verbose=0)
         return score
 
@@ -194,7 +196,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
                                          BASEDIR=args.data_dir,
-                                         files=[0,1,2,3,4,5,6])
+                                         load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
+                                         files=[0,1,2,3,4,5,6,7,8,9,10,11,12,13])
     data = (x_train, y_train, x_val, y_val)
     a = async_SHA(data, ngpu=args.ngpu)
     a.run()

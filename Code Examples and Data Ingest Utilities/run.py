@@ -79,12 +79,14 @@ if args.train:
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
                                          BASEDIR=args.data_dir,
                                          files=args.data_files)
-    model.fit(x_train, y_train,
-              batch_size=128,
-              epochs=args.epochs,
-              verbose=2,
-              validation_data=(x_val, y_val),
-              callbacks=[reduce_lr, t_board])
+    for e in range(args.epochs):
+        x_train = augment(x_train)
+        model.fit(x_train, y_train,
+                  batch_size=128,
+                  epochs=1,
+                  verbose=2,
+                  validation_data=(x_val, y_val),
+                  callbacks=[reduce_lr, t_board])
     model.save_weights(args.train_dir+"weights.h5")
     model_json = model.to_json()
     with open(args.train_dir+"model.json", "w") as json_file:
