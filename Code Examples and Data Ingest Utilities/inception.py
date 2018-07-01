@@ -4,7 +4,7 @@ from keras.utils import np_utils
 from keras.models import Model
 from keras.layers.core import Reshape,Dense,Dropout,Activation,Flatten
 from keras.layers.noise import GaussianNoise
-from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D, Conv1D, MaxPooling1D
+from keras.layers.convolutional import Conv2D, Convolution2D, MaxPooling2D, ZeroPadding2D, Conv1D, MaxPooling1D
 from keras.layers.recurrent import LSTM
 from keras.backend import squeeze
 from keras.regularizers import *
@@ -51,11 +51,11 @@ def googleNet(x, data_format='channels_last', pdict=None, num_classes=24):
     x = MaxPooling1D(3, strides=2, padding='same')(x)
     for dep in range(m[3]):
         x = inception(x, fs=np.array([48,96,16,48,96])//2*f[4], with_residual=False)
-    for dep in range(m[5]):
-        x = inception(x, fs=np.array([64,128,32,64,96])//2*f[6], with_residual=False)
+    for dep in range(m[4]):
+        x = inception(x, fs=np.array([64,128,32,64,96])//2*f[5], with_residual=False)
     x = MaxPooling1D(3, strides=2, padding='same')(x)
-    for dep in range(m[6]):
-        x = inception(x, fs=np.array([32,64,32,64,64])//2*f[7])
+    for dep in range(m[5]):
+        x = inception(x, fs=np.array([32,64,32,64,64])//2*f[6])
     x = GlobalAveragePooling1D()(x, keepdims=True)
     x = Dropout(pdict['dr'])(x)
     output = Flatten()(x)
@@ -79,6 +79,7 @@ def inception_2D(input_img, fs=[64,64,64,64,64], with_residual=False):
 
 def googleNet_2D(x, data_format='channels_last', num_classes=24):
 #     num_layers = [2,4,10,4]
+    in_shp = (1024, 2)
     num_layers = [1,2,2,1]
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters = 64, kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
@@ -87,19 +88,19 @@ def googleNet_2D(x, data_format='channels_last', num_classes=24):
         x = Conv2D(filters = 192, kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
     for dep in range(num_layers[1]):
-        x = inception(x, fs=[32,64,32,64,64])
+        x = inception_2D(x, fs=[32,64,32,64,64])
     x = MaxPooling2D(3, strides=2, padding='same')(x)
     for dep in range(num_layers[2]):
-        x = inception(x, fs=[48,96,48,96,96], with_residual=True)
+        x = inception_2D(x, fs=[48,96,48,96,96], with_residual=True)
     x = MaxPooling2D(3, strides=2, padding='same')(x)
     for dep in range(num_layers[3]):
-        x = inception(x, fs=[32,64,32,64,64])
+        x = inception_2D(x, fs=[32,64,32,64,64])
 #     x = GlobalAveragePooling1D()(x)
 #     x = Conv2D(filters=64, kernel_size=[1,1], padding='same', activation='relu')(x) # optional dim reduction
 
     x = Dropout(0.4)(x)
     output = Flatten()(x)
-    out    = Dense(\num_classes, activation='softmax')(output)
+    out    = Dense(num_classes, activation='softmax')(output)
     return out
 
 def get_pdict(mode='orig'):

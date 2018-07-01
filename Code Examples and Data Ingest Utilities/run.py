@@ -50,7 +50,10 @@ model_277 = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1,
 models = [model_9, model_44, model_277]
 
 input_img = Input(shape=(1024,2))
-out = googleNet(input_img,data_format='channels_last', pdict=models[args.model])
+if args.model<3:
+    out = googleNet(input_img,data_format='channels_last', pdict=models[args.model])
+elif args.model == 5:
+    out = googleNet_2D(input_img,data_format='channels_last')
 model = Model(inputs=input_img, outputs=out)
 
 model.compile(loss=keras.losses.categorical_crossentropy,
