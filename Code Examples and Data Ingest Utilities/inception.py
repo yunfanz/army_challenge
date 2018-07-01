@@ -51,8 +51,6 @@ def googleNet(x, data_format='channels_last', pdict=None, num_classes=24):
     x = MaxPooling1D(3, strides=2, padding='same')(x)
     for dep in range(m[3]):
         x = inception(x, fs=np.array([48,96,16,48,96])//2*f[4], with_residual=False)
-    for dep in range(m[4]):
-        x = inception(x, fs=np.array([56,112,16,48,80])//2*f[5], with_residual=False)
     for dep in range(m[5]):
         x = inception(x, fs=np.array([64,128,32,64,96])//2*f[6], with_residual=False)
     x = MaxPooling1D(3, strides=2, padding='same')(x)
@@ -64,16 +62,56 @@ def googleNet(x, data_format='channels_last', pdict=None, num_classes=24):
     out    = Dense(num_classes, activation='softmax')(output)
     return out
 
+def inception_2D(input_img, fs=[64,64,64,64,64], with_residual=False):
+    tower_1 = Conv2D(filters=fs[0], kernel_size=1, padding='same', activation='relu')(input_img)
+    tower_2 = Conv2D(filters=fs[2], kernel_size=1, padding='same', activation='relu')(input_img)
+    tower_2 = Conv2D(filters=fs[3], kernel_size=8, padding='same', activation='relu')(tower_2)
+    tower_3 = Conv2D(filters=fs[2], kernel_size=1, padding='same', activation='relu')(input_img)
+    tower_3 = Conv2D(filters=fs[3], kernel_size=4, padding='same', activation='relu')(tower_3)
+    tower_5 = Conv2D(filters=fs[2], kernel_size=1, padding='same', activation='relu')(input_img)
+    tower_5 = Conv2D(filters=fs[3], kernel_size=2, padding='same', activation='relu')(tower_5)
+    tower_4 = MaxPooling2D(3, strides=1, padding='same')(input_img)
+    tower_4 = Conv2D(filters=fs[4], kernel_size=1, padding='same', activation='relu')(tower_4)
+    output = keras.layers.concatenate([tower_1, tower_2, tower_3, tower_4, tower_5], axis = 3)
+    if with_residual and output.shape==input_img.shape:
+        output = output+input_img
+    return output
+
+def googleNet_2D(x, data_format='channels_last', num_classes=24):
+#     num_layers = [2,4,10,4]
+    num_layers = [1,2,2,1]
+    x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
+    x = Conv2D(filters = 64, kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
+    x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
+    for dep in range(num_layers[0]):
+        x = Conv2D(filters = 192, kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
+    x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
+    for dep in range(num_layers[1]):
+        x = inception(x, fs=[32,64,32,64,64])
+    x = MaxPooling2D(3, strides=2, padding='same')(x)
+    for dep in range(num_layers[2]):
+        x = inception(x, fs=[48,96,48,96,96], with_residual=True)
+    x = MaxPooling2D(3, strides=2, padding='same')(x)
+    for dep in range(num_layers[3]):
+        x = inception(x, fs=[32,64,32,64,64])
+#     x = GlobalAveragePooling1D()(x)
+#     x = Conv2D(filters=64, kernel_size=[1,1], padding='same', activation='relu')(x) # optional dim reduction
+
+    x = Dropout(0.4)(x)
+    output = Flatten()(x)
+    out    = Dense(\num_classes, activation='softmax')(output)
+    return out
+
 def get_pdict(mode='orig'):
     pdict = {}
     if mode == 'orig':
-        pdict['depths'] = np.ones(7, dtype=np.int)*2
-        pdict['features'] =  np.ones(8, dtype=np.int)*2
+        pdict['depths'] = np.ones(6, dtype=np.int)*2
+        pdict['features'] =  np.ones(7, dtype=np.int)*2
         pdict['dr'] = 0.6
     elif mode == 'prior':
-        pdict['depths'] = np.random.randint(low=0, high=4, size=7)
-        pdict['depths'][[0,1,6]] = np.random.randint(low=1, high=3, size=3)
-        pdict['features'] =  np.random.randint(low=1, high=4, size=8)
+        pdict['depths'] = np.random.randint(low=0, high=4, size=6)
+        pdict['depths'][[0,1,5]] = np.random.randint(low=1, high=4, size=3)
+        pdict['features'] =  np.random.randint(low=1, high=8, size=7)
         pdict['dr'] = np.random.uniform(low=0.2, high=0.8, size=1)[0]
     return pdict
 

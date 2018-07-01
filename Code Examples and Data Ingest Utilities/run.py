@@ -44,9 +44,9 @@ if not os.path.exists(args.train_dir):
     os.makedirs(args.train_dir)
 
 
-model_9 = {'depths': np.array([2, 2, 1, 0, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
-model_44 = {'depths': np.array([2, 2, 0, 3, 0, 0, 2]), 'features': np.array([1, 3, 1, 2, 2, 2, 2, 2]), 'dr': 0.24749480935162974}
-model_277 = {'depths': np.array([1, 1, 0, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3, 3]), 'dr': 0.54753203788931493}
+model_9 = {'depths': np.array([2, 2, 1, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
+model_44 = {'depths': np.array([2, 2, 0, 3, 0, 2]), 'features': np.array([1, 3, 1, 2, 2, 2, 2]), 'dr': 0.24749480935162974}
+model_277 = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
 models = [model_9, model_44, model_277]
 
 input_img = Input(shape=(1024,2))
@@ -79,7 +79,7 @@ if args.train:
     model.fit(x_train, y_train,
               batch_size=128,
               epochs=args.epochs,
-              verbose=1,
+              verbose=2,
               validation_data=(x_val, y_val),
               callbacks=[reduce_lr, t_board])
     model.save_weights(args.train_dir+"weights.h5")

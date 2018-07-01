@@ -85,15 +85,19 @@ class JobManager(Process):
         self.stop_event = stop_event
         self.eta = 3
         self.KMAX = 6
-        self.resource_min = 0.1
+        self.resource_min = 1
         self.bracket = 0
         self.idx = 0
         while not self.task_q.full():
-            theta = get_pdict(mode='orig')
-            if self.idx % 2 ==0 :
-                theta['dr'] = 0.4
-            if self.idx > 1:
-                theta['features'] = np.ones_like(theta['features'])
+            if self.idx == 0:
+                theta = {'depths': np.array([2, 2, 1, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
+            elif self.idx== 1:
+                theta = {'depths': np.array([2, 2, 0, 3, 0, 2]), 'features': np.array([1, 3, 1, 2, 2,  2, 2]), 'dr': 0.24749480935162974}
+            elif self.idx == 2:
+                theta = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
+            else:
+                theta = get_pdict(mode='orig')
+            
             self.task_q.put((self.idx, theta, 0,self.resource_min*self.eta**(0+self.bracket)))
             self.update_ladder(k=0)
             self.idx += 1
@@ -190,7 +194,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
                                          BASEDIR=args.data_dir,
-                                         files=[0,1,2,3,4])
+                                         files=[0,1,2,3,4,5,6])
     data = (x_train, y_train, x_val, y_val)
     a = async_SHA(data, ngpu=args.ngpu)
     a.run()
