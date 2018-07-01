@@ -43,7 +43,7 @@ CUDA_VISIBLE_DEVICES=3 python run.py --train_dir=./log/model_277/ --model 2 --da
 if not os.path.exists(args.train_dir):
     os.makedirs(args.train_dir)
 
-
+print('Data dir:', args.data_dir)
 model_9 = {'depths': np.array([2, 2, 1, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
 model_44 = {'depths': np.array([2, 2, 0, 3, 0, 2]), 'features': np.array([1, 3, 1, 2, 2, 2, 2]), 'dr': 0.24749480935162974}
 model_277 = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
@@ -77,7 +77,7 @@ if args.load_weights:
     model.load_weights(args.train_dir+"weights.h5")
 if args.train:
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
-                                         BASEDIR='/data2/army_challenge/training_data/',
+                                         BASEDIR=args.data_dir,
                                          files=args.data_files)
     model.fit(x_train, y_train,
               batch_size=128,
