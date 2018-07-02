@@ -1,8 +1,8 @@
 import os,random
 import numpy as np
 from keras.utils import np_utils
-import keras.models as models
-from keras.models import model_from_json
+import keras.models
+from keras.models import model_from_json, Sequential
 from keras.layers.core import Reshape,Dense,Dropout,Activation,Flatten
 from keras.layers.noise import GaussianNoise
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
@@ -59,14 +59,14 @@ elif args.model == 5:
     out = googleNet_2D(input_img,data_format='channels_last')
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 10:
-    model = models.Sequential() 
+    model = Sequential() 
     model.add(LSTM(100, input_shape=(1024,2)))
-    model.add(Dense(num_classes, activation='sigmoid'))
+    model.add(Dense(args.num_classes, activation='sigmoid'))
 elif args.model == 11:
-    model = models.Sequential() 
+    model = Sequential() 
     model.add(LSTM(100, input_shape=(1024,2)))
     model.add(LSTM(100, input_shape=(1024,2)))
-    model.add(Dense(num_classes, activation='sigmoid'))
+    model.add(Dense(args.num_classes, activation='sigmoid'))
 
 model.compile(loss=keras.losses.categorical_crossentropy,
                       optimizer=keras.optimizers.Adadelta(),
