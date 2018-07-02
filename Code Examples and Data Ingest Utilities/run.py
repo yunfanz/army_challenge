@@ -31,6 +31,8 @@ parser.add_argument('--model', type=int, default=2,
                     help='an integer for the accumulator')
 parser.add_argument('--epochs', type=int, default=10,
                     help='an integer for the accumulator')
+parser.add_argument('--num_classes', type=int, default=24,
+                    help='an integer for the accumulator')
 parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/training_data/',
                     help='an integer for the accumulator')
 parser.add_argument('--data_files', type=int, nargs='+',
@@ -52,9 +54,19 @@ models = [model_9, model_44, model_277]
 input_img = Input(shape=(1024,2))
 if args.model<3:
     out = googleNet(input_img,data_format='channels_last', pdict=models[args.model])
+    model = Model(inputs=input_img, outputs=out)
 elif args.model == 5:
     out = googleNet_2D(input_img,data_format='channels_last')
-model = Model(inputs=input_img, outputs=out)
+    model = Model(inputs=input_img, outputs=out)
+elif args.model == 10:
+    model = models.Sequential() 
+    model.add(LSTM(100, input_shape=(1024,2)))
+    model.add(Dense(num_classes, activation='sigmoid'))
+elif args.model == 11:
+    model = models.Sequential() 
+    model.add(LSTM(100, input_shape=(1024,2)))
+    model.add(LSTM(100, input_shape=(1024,2)))
+    model.add(Dense(num_classes, activation='sigmoid'))
 
 model.compile(loss=keras.losses.categorical_crossentropy,
                       optimizer=keras.optimizers.Adadelta(),
