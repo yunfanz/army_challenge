@@ -5,7 +5,7 @@ import keras.models
 from keras.models import model_from_json, Sequential
 from keras.layers.core import Reshape,Dense,Dropout,Activation,Flatten
 from keras.layers.noise import GaussianNoise
-from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
+from keras.layers.convolutional import Conv1D, Convolution2D, MaxPooling2D, ZeroPadding2D
 from keras.layers.recurrent import LSTM
 from keras.backend import squeeze
 from keras.regularizers import *
@@ -60,6 +60,10 @@ elif args.model == 5:
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 10:
     model = Sequential() 
+    model.add(Conv1D(filters=32, kernel_size=5, padding='same', activation='relu'))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(Conv1D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling1D(pool_size=2))
     model.add(LSTM(100, input_shape=(1024,2)))
     model.add(Dense(args.num_classes, activation='sigmoid'))
 elif args.model == 11:
@@ -89,6 +93,7 @@ if args.load_weights:
     model.load_weights(args.train_dir+"weights.h5")
 if args.train:
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
+                                         load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
                                          BASEDIR=args.data_dir,
                                          files=args.data_files)
     for e in range(args.epochs):
@@ -96,7 +101,7 @@ if args.train:
         model.fit(x_train, y_train,
                   batch_size=128,
                   epochs=1,
-                  verbose=2,
+                  verbose=1,
                   validation_data=(x_val, y_val),
                   callbacks=[reduce_lr, t_board])
     model.save_weights(args.train_dir+"weights.h5")
@@ -107,7 +112,7 @@ if args.train:
 
 
 test_file = args.data_dir+"training_data_chunk_14.pkl"
-testdata = LoadModRecData(test_file, 0., 0., 1.)
+testdata = LoadModRecData(test_file, 0., 0., 1., load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],)
 # Plot confusion matrix
 acc = {}
 snrs = np.arange(-15,15, 5)

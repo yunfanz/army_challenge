@@ -44,7 +44,7 @@ class TrainWorker(Process):
         if self.name == 2:
             batch_size = 128
         else:
-            batch_size = 256
+            batch_size = 128
         print("starting on", self.name, 'rung', k, 'epochs', epochs, 'train_size', x_train.shape[0])
         
         input_img = Input(shape=(1024,2))
@@ -88,7 +88,7 @@ class JobManager(Process):
         self.eta = 3
         self.KMAX = 6
         self.resource_min = 1
-        self.bracket = 0
+        self.bracket = 1
         self.idx = 0
         while not self.task_q.full():
             if self.idx == 0:
