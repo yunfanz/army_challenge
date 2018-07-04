@@ -59,18 +59,22 @@ elif args.model == 5:
     out = googleNet_2D(input_img,data_format='channels_last')
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 10:
-    model = Sequential() 
-    model.add(Conv1D(filters=32, kernel_size=5, padding='same', activation='relu'))
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(Conv1D(filters=64, kernel_size=3, padding='same', activation='relu'))
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(LSTM(100, input_shape=(1024,2)))
-    model.add(Dense(args.num_classes, activation='sigmoid'))
+    x = Conv1D(filters=32, kernel_size=5, padding='same', activation='relu')(input_img)
+    x = MaxPooling1D(pool_size=2)(x)
+    print(x.shape)
+    x = LSTM(150)(x)
+    #x = LSTM(150)(x)
+    #x = LSTM(150)(x)
+    x = Dense(args.num_classes, activation='sigmoid')(x)
+    model = Model(input_img, x)
 elif args.model == 11:
-    model = Sequential() 
-    model.add(LSTM(100, input_shape=(1024,2)))
-    model.add(LSTM(100, input_shape=(1024,2)))
-    model.add(Dense(args.num_classes, activation='sigmoid'))
+    x = Conv1D(filters=32, kernel_size=5, padding='same', activation='relu')(input_img)
+    x = MaxPooling1D(pool_size=2)(x)
+    x = LSTM(150, return_sequences=True)(x)
+    x = LSTM(150, return_sequences=True)(x)
+    x = LSTM(150)(x)
+    x = Dense(args.num_classes, activation='sigmoid')(x)
+    model = Model(input_img, x)
 
 model.compile(loss=keras.losses.categorical_crossentropy,
                       optimizer=keras.optimizers.Adadelta(),
@@ -101,7 +105,7 @@ if args.train:
         model.fit(x_train, y_train,
                   batch_size=128,
                   epochs=1,
-                  verbose=1,
+                  verbose=2,
                   validation_data=(x_val, y_val),
                   callbacks=[reduce_lr, t_board])
     model.save_weights(args.train_dir+"weights.h5")
