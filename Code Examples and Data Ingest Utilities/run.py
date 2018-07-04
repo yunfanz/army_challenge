@@ -49,11 +49,14 @@ print('Data dir:', args.data_dir)
 model_9 = {'depths': np.array([2, 2, 1, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
 model_44 = {'depths': np.array([2, 2, 0, 3, 0, 2]), 'features': np.array([1, 3, 1, 2, 2, 2, 2]), 'dr': 0.24749480935162974}
 model_277 = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
-models = [model_9, model_44, model_277]
+model_0 = {'depths': np.array([2, 2, 2, 2, 2, 2]), 'features': np.array([2, 2, 2, 2, 2, 2, 2]), 'dr': 0.6}
+models = [model_0, model_9, model_44, model_277]
 
 input_img = Input(shape=(1024,2))
-if args.model<3:
-    out = googleNet(input_img,data_format='channels_last', pdict=models[args.model])
+if args.model<len(models):
+    print("Using model")
+    print(models[args.model])
+    out = googleNet(input_img,data_format='channels_last', pdict=models[args.model], num_classes=args.num_classes)
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 5:
     out = googleNet_2D(input_img,data_format='channels_last')
