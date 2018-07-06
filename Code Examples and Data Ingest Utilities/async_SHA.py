@@ -86,7 +86,7 @@ class JobManager(Process):
         self.ladder = ladder
         self.stop_event = stop_event
         self.eta = 3
-        self.KMAX = 6
+        self.KMAX = 5
         self.resource_min = 1
         self.bracket = 1
         self.idx = 0
@@ -94,7 +94,7 @@ class JobManager(Process):
             if self.idx == 0:
                 theta = {'depths': np.array([2, 2, 1, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
             elif self.idx== 1:
-                theta = {'depths': np.array([2, 2, 0, 3, 0, 2]), 'features': np.array([1, 3, 1, 2, 2,  2, 2]), 'dr': 0.24749480935162974}
+                theta = {'depths': np.array([2, 2, 0, 3, 0, 2]), 'features': np.array([1, 3, 1, 2, 2, 2, 2]), 'dr': 0.24749480935162974}
             elif self.idx == 2:
                 theta = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
             else:

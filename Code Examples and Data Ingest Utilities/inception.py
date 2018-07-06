@@ -29,7 +29,9 @@ def inception(input_img, fs=[64,64,64,64,64], with_residual=False):
     tower_2 = Conv1D(fs[3], 5, padding='same', activation='relu')(tower_2)
     tower_3 = MaxPooling1D(3, strides=1, padding='same')(input_img)
     tower_3 = Conv1D(fs[4], 1, padding='same', activation='relu')(tower_3)
-    output = keras.layers.concatenate([tower_1, tower_2, tower_3], axis = 2)
+    tower_4 = Conv1D(fs[2], 1, padding='same', activation='relu')(input_img)
+    tower_4 = Conv1D(fs[3], 7, padding='same', activation='relu')(tower_4)
+    output = keras.layers.concatenate([tower_1, tower_2, tower_3, tower_4], axis = 2)
     if with_residual and output.shape==input_img.shape:
         output = output+input_img
     return output
