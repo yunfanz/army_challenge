@@ -78,7 +78,7 @@ class TrainWorker(Process):
                 self.result_q.put((idx, theta, k, score[0]))
                 
 class JobManager(Process):
-    def __init__(self, train_worker, task_q: Queue, result_q: Queue, ladder, stop_event: Event):
+    def __init__(self, train_worker, task_q: Queue, result_q: Queue, ladder, stop_event: Event, bracket=0):
         super().__init__()
         self.train_worker = train_worker
         self.result_q = result_q
@@ -88,14 +88,14 @@ class JobManager(Process):
         self.eta = 3
         self.KMAX = 5
         self.resource_min = 1
-        self.bracket = 1
+        self.bracket = bracket
         self.idx = 0
        #{'depths': array([3, 1, 1, 1, 2, 2]), 'features': array([6, 1, 7, 1, 2, 2, 2]), 'dr': 0.57682381938416705}, 1.0342028187612693), 179: ({'depths': array([3, 3, 3, 2, 0, 2]), 'features': array([1, 2, 3, 2, 3, 4, 2]), 'dr': 0.26244661792652291}
         while not self.task_q.full():
             if self.idx == 0:
-                theta = {'depths': array([3, 1, 1, 1, 2, 2]), 'features': array([6, 1, 7, 1, 2, 2, 2]), 'dr': 0.57682381938416705}
+                theta = {'depths': np.array([3, 1, 1, 1, 2, 2]), 'features': np.array([6, 1, 7, 1, 2, 2, 2]), 'dr': 0.57682381938416705}
             elif self.idx== 1:
-                theta = {'depths': array([3, 3, 3, 2, 0, 2]), 'features': array([1, 2, 3, 2, 3, 4, 2]), 'dr': 0.26244661792652291}
+                theta = {'depths': np.array([3, 3, 3, 2, 0, 2]), 'features': np.array([1, 2, 3, 2, 3, 4, 2]), 'dr': 0.26244661792652291}
             elif self.idx == 2:
                 theta = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
             else:
@@ -165,18 +165,19 @@ class JobManager(Process):
                 
 
 class async_SHA:
-    def __init__(self, data, ngpu=2):
+    def __init__(self, data, ngpu=2, bracket=0):
         self.stop_event = Event()
         self.result_q = Queue(4)
         self.ladder = []
         self.ngpu = ngpu
+        self.bracket = bracket
         self.task_q = Queue(ngpu)
         
     def run(self):
         self.train_worker = {pid: TrainWorker(data, self.task_q, self.result_q, self.stop_event, name=str(pid)) for pid in range(self.ngpu)}
         for w in self.train_worker.values():
             w.start()
-        self.job_manager = JobManager(self.train_worker, self.task_q, self.result_q, self.ladder, self.stop_event)
+        self.job_manager = JobManager(self.train_worker, self.task_q, self.result_q, self.ladder, self.stop_event, bracket=self.bracket)
         self.job_manager.start()
         if self.stop_event.is_set():
             print(self.ladder)
@@ -194,11 +195,13 @@ if __name__ == '__main__':
     parser.add_argument('--ngpu', type=int, default=2,
                     help='number of available gpus')
     parser.add_argument('--data_dir', dest='data_dir', type=str)
+    parser.add_argument('--bracket', type=int, default=0,
+                    help='bracket to use')
     args = parser.parse_args()
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
                                          BASEDIR=args.data_dir,
                                          load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
-                                         files=[0,1,2,3,4,5,6,7,8,9,10,11,12,13])
+                                         files=[0,1,2,3,4,5,6,7,8,9, 10,11,12,13])
     data = (x_train, y_train, x_val, y_val)
-    a = async_SHA(data, ngpu=args.ngpu)
+    a = async_SHA(data, ngpu=args.ngpu, bracket=args.bracket)
     a.run()
