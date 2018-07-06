@@ -90,11 +90,12 @@ class JobManager(Process):
         self.resource_min = 1
         self.bracket = 1
         self.idx = 0
+       #{'depths': array([3, 1, 1, 1, 2, 2]), 'features': array([6, 1, 7, 1, 2, 2, 2]), 'dr': 0.57682381938416705}, 1.0342028187612693), 179: ({'depths': array([3, 3, 3, 2, 0, 2]), 'features': array([1, 2, 3, 2, 3, 4, 2]), 'dr': 0.26244661792652291}
         while not self.task_q.full():
             if self.idx == 0:
-                theta = {'depths': np.array([2, 2, 1, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
+                theta = {'depths': array([3, 1, 1, 1, 2, 2]), 'features': array([6, 1, 7, 1, 2, 2, 2]), 'dr': 0.57682381938416705}
             elif self.idx== 1:
-                theta = {'depths': np.array([2, 2, 0, 3, 0, 2]), 'features': np.array([1, 3, 1, 2, 2, 2, 2]), 'dr': 0.24749480935162974}
+                theta = {'depths': array([3, 3, 3, 2, 0, 2]), 'features': array([1, 2, 3, 2, 3, 4, 2]), 'dr': 0.26244661792652291}
             elif self.idx == 2:
                 theta = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
             else:
