@@ -6,7 +6,7 @@ from keras.models import model_from_json, Sequential
 from keras.layers.core import Reshape,Dense,Dropout,Activation,Flatten
 from keras.layers.noise import GaussianNoise
 from keras.layers.convolutional import Conv1D, Convolution2D, MaxPooling2D, ZeroPadding2D
-from keras.layers.recurrent import LSTM
+from keras.layers.recurrent import LSTM, GRU
 from keras.backend import squeeze
 from keras.regularizers import *
 from keras.callbacks import TensorBoard, ReduceLROnPlateau
@@ -37,7 +37,7 @@ parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/train
                     help='an integer for the accumulator')
 parser.add_argument('--data_files', type=int, nargs='+',
                     help='an integer for the accumulator')
-
+parser.add_argument('--sep', type=bool, default=False)
 args = parser.parse_args()
 """ Sample usage:
 CUDA_VISIBLE_DEVICES=3 python run.py --train_dir=./log/model_277/ --model 2 --data_files 0 1 --epochs 2
@@ -64,8 +64,8 @@ elif args.model == 5:
 elif args.model == 10:
     x = Conv1D(filters=32, kernel_size=5, padding='same', activation='relu')(input_img)
     x = MaxPooling1D(pool_size=2)(x)
-    print(x.shape)
-    x = LSTM(150)(x)
+    x = LSTM(256, return_sequences=True)(x)
+    x = LSTM(256)(x)
     #x = LSTM(150)(x)
     #x = LSTM(150)(x)
     x = Dense(args.num_classes, activation='sigmoid')(x)
@@ -73,9 +73,9 @@ elif args.model == 10:
 elif args.model == 11:
     x = Conv1D(filters=32, kernel_size=5, padding='same', activation='relu')(input_img)
     x = MaxPooling1D(pool_size=2)(x)
-    x = LSTM(150, return_sequences=True)(x)
-    x = LSTM(150, return_sequences=True)(x)
-    x = LSTM(150)(x)
+    #x = LSTM(150, return_sequences=True)(x)
+    x = GRU(256, return_sequences=True)(x)
+    x = GRU(256)(x)
     x = Dense(args.num_classes, activation='sigmoid')(x)
     model = Model(input_img, x)
 
@@ -99,11 +99,17 @@ if args.load_weights:
     # load weights into new model
     model.load_weights(args.train_dir+"weights.h5")
 if args.train:
-    x_train, y_train, x_val, y_val = get_data(mode='time_series',
-                                         load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
+    if not args.sep:
+        x_train, y_train, x_val, y_val = get_data(mode='time_series',
+                                         #load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
                                          BASEDIR=args.data_dir,
                                          files=args.data_files)
     for e in range(args.epochs):
+        if args.sep:
+            x_train, y_train, x_val, y_val = get_data(mode='time_series',
+                                         #load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
+                                         BASEDIR=args.data_dir,
+                                         files=[np.random.choice(args.data_files)])
         x_train = augment(x_train)
         model.fit(x_train, y_train,
                   batch_size=128,
@@ -119,7 +125,7 @@ if args.train:
 
 
 test_file = args.data_dir+"training_data_chunk_14.pkl"
-testdata = LoadModRecData(test_file, 0., 0., 1., load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],)
+testdata = LoadModRecData(test_file, 0., 0., 1.)#, load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],)
 # Plot confusion matrix
 acc = {}
 snrs = np.arange(-15,15, 5)
