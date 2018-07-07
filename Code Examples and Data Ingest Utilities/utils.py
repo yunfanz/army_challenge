@@ -29,7 +29,7 @@ def augment(x, channel_last=True):
     print(x_complex.shape)
     return x_complex
 
-def get_data(data_format='channel_last', mode='time_series', load_mods=None, BASEDIR="/home/mshefa/training_data/", files=[0], window='hann', nperseg=256, noverlap=220):
+def get_data(data_format='channel_last', mode='time_series', load_mods=None, BASEDIR="/home/mshefa/training_data/", files=[0], window='hann', nperseg=256, noverlap=200):
     """
     Data providing function:
 
@@ -67,11 +67,16 @@ def get_fourier(cdata, window='hann', nperseg=256, noverlap=220):
         cdata = cdata[...,0] + cdata[...,1]*1.j
         cdata = cdata.astype(np.complex64)
     batch_size = cdata.shape[0]
+    print(cdata.shape)
 #     fold = cdata.squeeze().reshape((batch_size, window, 1024//window))
 #     if with_hamming:
 #         fold *= np.hamming(1024//window)
 #     ft = np.fft.fftshift(np.fft.fft(fold, axis=-1))
-    _, _, ft = stft(cdata, window=window, nperseg=nperseg, noverlap=noverlap)
-    ft = np.fft.fftshift(ft, axis=-1)
-    ft = np.stack([ft.real, ft.imag], axis=-1)
-    return ft
+    fts = []
+    for i in range(batch_size):
+        _, _, ft = stft(cdata[i], window=window, nperseg=nperseg, noverlap=noverlap)
+        #ft = np.fft.fftshift(ft, axes=-1)
+        fts.append(ft)
+    fts = np.asarray(fts)
+    fts = np.stack([fts.real, fts.imag], axis=-1)
+    return fts

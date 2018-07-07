@@ -25,7 +25,7 @@ class TrainWorker(Process):
         import numpy as np
         import os
         from inception import googleNet, get_pdict
-        
+        from resnet2D import ResnetBuilder
         
         
         

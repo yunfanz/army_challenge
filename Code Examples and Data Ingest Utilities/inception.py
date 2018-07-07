@@ -36,6 +36,12 @@ def inception(input_img, fs=[64,64,64,64,64], with_residual=False):
         output = output+input_img
     return output
 
+def out_tower(x, dr):
+    x = GlobalAveragePooling1D()(x, keepdims=True)
+    x = Dropout(pdict['dr'])(x)
+    output = Flatten()(x)
+    return output
+
 def googleNet(x, data_format='channels_last', pdict=None, num_classes=24):
     if pdict is None:
         pdict = get_pdict(mode='orig')
@@ -58,9 +64,7 @@ def googleNet(x, data_format='channels_last', pdict=None, num_classes=24):
     x = MaxPooling1D(3, strides=2, padding='same')(x)
     for dep in range(m[5]):
         x = inception(x, fs=np.array([32,64,32,64,64])//2*f[6])
-    x = GlobalAveragePooling1D()(x, keepdims=True)
-    x = Dropout(pdict['dr'])(x)
-    output = Flatten()(x)
+    output = out_tower(x, pdict['dr'])
     out    = Dense(num_classes, activation='softmax')(output)
     return out
 
