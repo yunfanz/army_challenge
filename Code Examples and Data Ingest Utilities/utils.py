@@ -15,14 +15,14 @@ def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues, label
     plt.xlabel('Predicted label')
     
     
-def augment(x, channel_last=True):
+def augment(x, data_format='channels_last'):
     if channel_last:
         x_complex = x[:,:,0] + x[:,:,1]*1.j
     else:
         x_complex = x[:,0] + x[:,1]*1.j
     phs = np.random.random(x_complex.shape[0])
     x_complex *= np.exp(2*np.pi*phs*1.j)[:,np.newaxis]
-    if channel_last:
+    if data_format == 'channels_last':
         x_complex = np.stack([x_complex.real, x_complex.imag], axis=2)
     else:
         x_complex = np.stack([x_complex.real, x_complex.imag], axis=1)    
@@ -49,7 +49,7 @@ def get_data(data_format='channel_last', mode='time_series', load_mods=None, BAS
     y_train = np.concatenate(y_train)
     x_val = np.vstack(x_val)
     y_val = np.concatenate(y_val)
-    
+    print(x_train.shape) 
     #x_train = augment(x_train)
     if data_format == "channel_last":
         x_train = np.transpose(x_train, (0,2,1))

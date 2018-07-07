@@ -68,24 +68,22 @@ def googleNet(x, data_format='channels_last', pdict=None, num_classes=24):
     out    = Dense(num_classes, activation='softmax')(output)
     return out
 
-def inception_2D(input_img, fs=[64,64,64,64,64], with_residual=False):
-    tower_1 = Conv2D(filters=fs[0], kernel_size=1, padding='same', activation='relu')(input_img)
-    tower_2 = Conv2D(filters=fs[2], kernel_size=1, padding='same', activation='relu')(input_img)
-    tower_2 = Conv2D(filters=fs[3], kernel_size=8, padding='same', activation='relu')(tower_2)
-    tower_3 = Conv2D(filters=fs[2], kernel_size=1, padding='same', activation='relu')(input_img)
-    tower_3 = Conv2D(filters=fs[3], kernel_size=4, padding='same', activation='relu')(tower_3)
-    tower_5 = Conv2D(filters=fs[2], kernel_size=1, padding='same', activation='relu')(input_img)
-    tower_5 = Conv2D(filters=fs[3], kernel_size=2, padding='same', activation='relu')(tower_5)
+
+def inception_2D(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
+    tower_1 = Conv2D(filters=fs[0], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
+    tower_2 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
+    tower_2 = Conv2D(filters=fs[3], kernel_size=[height, 8], padding='same', activation='relu')(tower_2)
+    tower_3 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
+    tower_3 = Conv2D(filters=fs[3], kernel_size=[height, 4], padding='same', activation='relu')(tower_3)
     tower_4 = MaxPooling2D(3, strides=1, padding='same')(input_img)
     tower_4 = Conv2D(filters=fs[4], kernel_size=1, padding='same', activation='relu')(tower_4)
-    output = keras.layers.concatenate([tower_1, tower_2, tower_3, tower_4, tower_5], axis = 3)
+    output = keras.layers.concatenate([tower_1, tower_2, tower_3, tower_4], axis = 3)
     if with_residual and output.shape==input_img.shape:
         output = output+input_img
     return output
 
-def googleNet_2D(x, data_format='channels_last', num_classes=24):
+def googleNet_2D(x, data_format='channels_last', in_shp=(2,1024)):
 #     num_layers = [2,4,10,4]
-    in_shp = (1024, 2)
     num_layers = [1,2,2,1]
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters = 64, kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
@@ -94,19 +92,19 @@ def googleNet_2D(x, data_format='channels_last', num_classes=24):
         x = Conv2D(filters = 192, kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
     for dep in range(num_layers[1]):
-        x = inception_2D(x, fs=[32,64,32,64,64])
-    x = MaxPooling2D(3, strides=2, padding='same')(x)
+        x = inception_2D(x, height=2, fs=[32,32,32,32,32])
+    x = MaxPooling2D([1,3], strides=2, padding='same')(x)
     for dep in range(num_layers[2]):
-        x = inception_2D(x, fs=[48,96,48,96,96], with_residual=True)
-    x = MaxPooling2D(3, strides=2, padding='same')(x)
+        x = inception_2D(x, height=2, fs=[48,96,48,96,96], with_residual=True)
+    x = MaxPooling2D([2,3], strides=2, padding='same')(x)
     for dep in range(num_layers[3]):
-        x = inception_2D(x, fs=[32,64,32,64,64])
+        x = inception_2D(x, height=1,fs=[32,32,32,32,32])
 #     x = GlobalAveragePooling1D()(x)
 #     x = Conv2D(filters=64, kernel_size=[1,1], padding='same', activation='relu')(x) # optional dim reduction
 
-    x = Dropout(0.4)(x)
+    x = Dropout(0.45)(x)
     output = Flatten()(x)
-    out    = Dense(num_classes, activation='softmax')(output)
+    out    = Dense(24, activation='softmax')(output)
     return out
 
 def get_pdict(mode='orig'):

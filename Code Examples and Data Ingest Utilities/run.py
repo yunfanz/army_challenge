@@ -37,6 +37,8 @@ parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/train
                     help='an integer for the accumulator')
 parser.add_argument('--data_files', type=int, nargs='+',
                     help='an integer for the accumulator')
+parser.add_argument('--data_format', type=str,
+                    help='an integer for the accumulator')
 parser.add_argument('--sep', type=bool, default=False)
 args = parser.parse_args()
 """ Sample usage:
@@ -59,6 +61,7 @@ if args.model<len(models):
     out = googleNet(input_img,data_format='channels_last', pdict=models[args.model], num_classes=args.num_classes)
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 5:
+    input_img = Input(shape=(2,1024))
     out = googleNet_2D(input_img,data_format='channels_last')
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 10:
@@ -100,17 +103,17 @@ if args.load_weights:
     model.load_weights(args.train_dir+"weights.h5")
 if args.train:
     if not args.sep:
-        x_train, y_train, x_val, y_val = get_data(mode='time_series',
+        x_train, y_train, x_val, y_val = get_data(mode='time_series', data_format=args.data_format,
                                          #load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
                                          BASEDIR=args.data_dir,
                                          files=args.data_files)
     for e in range(args.epochs):
         if args.sep:
-            x_train, y_train, x_val, y_val = get_data(mode='time_series',
+            x_train, y_train, x_val, y_val = get_data(mode='time_series', data_format=args.data_format,
                                          #load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
                                          BASEDIR=args.data_dir,
                                          files=[np.random.choice(args.data_files)])
-        x_train = augment(x_train)
+        #x_train = augment(x_train)
         model.fit(x_train, y_train,
                   batch_size=128,
                   epochs=1,
