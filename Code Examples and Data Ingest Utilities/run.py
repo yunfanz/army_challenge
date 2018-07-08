@@ -110,7 +110,7 @@ if args.train:
                                          #load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
                                          BASEDIR=args.data_dir,
                                          files=[np.random.choice(args.data_files)])
-        x_train = augment(x_train)
+        #x_train = augment(x_train)
         model.fit(x_train, y_train,
                   batch_size=128,
                   epochs=1,
