@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from data_loader import *
+from scipy.signal import *
 import numpy as np
 
 def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues, labels=[]):
@@ -14,21 +15,21 @@ def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues, label
     plt.xlabel('Predicted label')
     
     
-def augment(x, channel_last=True):
-    if channel_last:
+def augment(x, data_format='channels_last'):
+    if data_format == 'channels_last':
         x_complex = x[:,:,0] + x[:,:,1]*1.j
     else:
         x_complex = x[:,0] + x[:,1]*1.j
     phs = np.random.random(x_complex.shape[0])
     x_complex *= np.exp(2*np.pi*phs*1.j)[:,np.newaxis]
-    if channel_last:
+    if data_format == 'channels_last':
         x_complex = np.stack([x_complex.real, x_complex.imag], axis=2)
     else:
         x_complex = np.stack([x_complex.real, x_complex.imag], axis=1)    
     print(x_complex.shape)
     return x_complex
 
-def get_data(data_format='channel_last', mode='time_series', load_mods=None, BASEDIR = "/home/mshefa/training_data/", files=[0]):
+def get_data(data_format='channel_last', mode='time_series', load_mods=None, BASEDIR="/home/mshefa/training_data/", files=[0], window='hann', nperseg=256, noverlap=200):
     """
     Data providing function:
 
@@ -48,7 +49,7 @@ def get_data(data_format='channel_last', mode='time_series', load_mods=None, BAS
     y_train = np.concatenate(y_train)
     x_val = np.vstack(x_val)
     y_val = np.concatenate(y_val)
-    
+    print(x_train.shape) 
     #x_train = augment(x_train)
     if data_format == "channel_last":
         x_train = np.transpose(x_train, (0,2,1))
@@ -56,19 +57,26 @@ def get_data(data_format='channel_last', mode='time_series', load_mods=None, BAS
     if mode == 'time_series':
         return x_train, y_train, x_val, y_val
     elif mode == 'fourier':
-        return get_fourier(x_train), y_train, get_fourier(x_val), y_val
+        return get_fourier(x_train, window=window, nperseg=nperseg, noverlap=noverlap), y_train, get_fourier(x_val), y_val
     elif mode == "both":
-        return x_train, get_fourier(x_train), y_train, x_val, get_fourier(x_val), y_val
+        return x_train, get_fourier(x_train, window=window, nperseg=nperseg, noverlap=noverlap), y_train, x_val, get_fourier(x_val), y_val
     
-def get_fourier(cdata, window=16, with_hamming=True):
+def get_fourier(cdata, window='hann', nperseg=256, noverlap=220):
     """input must be (batch_size, 1024, 2) real time series"""
     if len(cdata.shape) == 3:
         cdata = cdata[...,0] + cdata[...,1]*1.j
         cdata = cdata.astype(np.complex64)
     batch_size = cdata.shape[0]
-    fold = cdata.squeeze().reshape((batch_size, window, 1024//window))
-    if with_hamming:
-        fold *= np.hamming(1024//window)
-    ft = np.fft.fftshift(np.fft.fft(fold, axis=-1))
-    ft = np.stack([ft.real, ft.imag], axis=-1)
-    return ft
+    print(cdata.shape)
+#     fold = cdata.squeeze().reshape((batch_size, window, 1024//window))
+#     if with_hamming:
+#         fold *= np.hamming(1024//window)
+#     ft = np.fft.fftshift(np.fft.fft(fold, axis=-1))
+    fts = []
+    for i in range(batch_size):
+        _, _, ft = stft(cdata[i], window=window, nperseg=nperseg, noverlap=noverlap)
+        #ft = np.fft.fftshift(ft, axes=-1)
+        fts.append(ft)
+    fts = np.asarray(fts)
+    fts = np.stack([fts.real, fts.imag], axis=-1)
+    return fts
