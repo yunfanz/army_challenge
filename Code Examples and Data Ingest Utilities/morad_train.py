@@ -14,7 +14,7 @@ from keras.utils import plot_model, multi_gpu_model
 
 
 BASEDIR = '/datax/yzhang/training_data/'
-model_path = 'morad_classifier1.h5'
+model_path = '/datax/yzhang/morad_classifier1.h5'
 
 data = []
 for i in range(13):
@@ -33,20 +33,19 @@ data_file = BASEDIR + "training_data_chunk_14.pkl"
 testdata = LoadModRecData(data_file, 0., 0., 1.)
 
 
-conv_index=0
+#global conv_index
+#conv_index=0
 def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
-    print("beginning inception",conv_index, fs)
-    global conv_index
-    tower_1 = Conv2D(filters=fs[0], kernel_size=[height, 1], padding='same', activation='relu', name="conv_a"+str(conv_index))(input_img)
-    conv_index += 1
-    tower_2 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu', name="conv_b"+str(conv_index))(input_img)
-    conv_index += 1
-    tower_2 = Conv2D(filters=fs[3], kernel_size=[height, 8], padding='same', activation='relu', name="conv_c"+str(conv_index))(tower_2)
-    conv_index += 1
-    tower_3 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu', name="conv_d"+str(conv_index))(input_img)
-    conv_index += 1
-    tower_3 = Conv2D(filters=fs[3], kernel_size=[height, 4], padding='same', activation='relu', name="conv_e"+str(conv_index))(tower_3)
-    conv_index += 1
+    tower_1 = Conv2D(filters=fs[0], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
+    #conv_index += 1
+    tower_2 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
+    #conv_index += 1
+    tower_2 = Conv2D(filters=fs[3], kernel_size=[height, 8], padding='same', activation='relu')(tower_2)
+    #conv_index += 1
+    tower_3 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
+    #conv_index += 1
+    tower_3 = Conv2D(filters=fs[3], kernel_size=[height, 4], padding='same', activation='relu')(tower_3)
+    #conv_index += 1
     # tower_5 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
     # tower_5 = Conv2D(filters=fs[3], kernel_size=[height, 2], padding='same', activation='relu')(tower_5)
     tower_4 = MaxPooling2D(3, strides=1, padding='same')(input_img)
@@ -54,7 +53,7 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
     output = keras.layers.concatenate([tower_1, tower_2, tower_3, tower_4], axis = 3)
     if with_residual and output.shape==input_img.shape:
         output = output+input_img
-    print("end inception",conv_index)
+    #print("end inception",conv_index)
     print()
     return output
 
@@ -96,7 +95,7 @@ model.summary()
 
 
 
-plot_model(model, to_file='model.png', show_shapes = True)
+#plot_model(model, to_file='model.png', show_shapes = True)
 
 
 
@@ -150,7 +149,7 @@ train_batches = train_batches()
 
 model = multi_gpu_model(model, gpus=2)
 model.compile(loss='categorical_crossentropy', optimizer='adam')
-filepath = '/tmp/morads/convmodrecnets_CNN2_0.5.wts.h5'
+filepath = '/datax/yzhang/morad_model.h5'
 
 # model.load_weights(filepath)
 history = model.fit_generator(train_batches,
