@@ -29,6 +29,21 @@ def augment(x, data_format='channels_last'):
     print(x_complex.shape)
     return x_complex
 
+def cwt_ricker(x, widths):
+    return cwt(x, ricker, widths)
+cwt_ricker = np.vectorize(cwt_ricker, signature='(m),(n)->(n,m)')
+def cwt_morlet(x, widths):
+    return cwt(x, morlet, widths)
+cwt_morlet = np.vectorize(cwt_morlet, signature='(m),(n)->(n,m)')
+
+def get_wavelet(x, widths = np.arange(1,21)):
+    x = x[...,0]+x[...,1]*1.j
+    cwtricker_x = cwt_ricker(x,widths)
+    cwtmorlet_x = cwt_morlet(x,widths)
+    cwts = np.stack([cwtricker_x, cwtmorlet_x], axis=-1)
+    cwts = np.transpose(cwts, (0,2,1,3))
+    return cwts
+
 def get_data(data_format='channel_last', mode='time_series', load_mods=None, BASEDIR="/home/mshefa/training_data/", files=[0], window='hann', nperseg=256, noverlap=200):
     """
     Data providing function:
@@ -36,6 +51,8 @@ def get_data(data_format='channel_last', mode='time_series', load_mods=None, BAS
     This function is separated from create_model() so that hyperopt
     won't reload data for each evaluation run.
     """
+#     if not mode.is_instance(list):
+#         mode = [mode]
     x_train, y_train, x_val, y_val = [], [], [], []
     for f in files:
         data_file = BASEDIR+"training_data_chunk_0.pkl"
@@ -57,7 +74,10 @@ def get_data(data_format='channel_last', mode='time_series', load_mods=None, BAS
     if mode == 'time_series':
         return x_train, y_train, x_val, y_val
     elif mode == 'fourier':
-        return get_fourier(x_train, window=window, nperseg=nperseg, noverlap=noverlap), y_train, get_fourier(x_val), y_val
+        return get_fourier(x_train, window=window, nperseg=nperseg, noverlap=noverlap), y_train, get_fourier(x_val, window=window, nperseg=nperseg, noverlap=noverlap), y_val
+    elif mode == 'wavelet':
+        return get_wavelet(x_train), y_train, get_wavelet(x_val), y_val
+       
     elif mode == "both":
         return x_train, get_fourier(x_train, window=window, nperseg=nperseg, noverlap=noverlap), y_train, x_val, get_fourier(x_val), y_val
     
