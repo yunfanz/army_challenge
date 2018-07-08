@@ -38,7 +38,7 @@ def inception(input_img, fs=[64,64,64,64,64], with_residual=False):
 
 def out_tower(x, dr):
     x = GlobalAveragePooling1D()(x, keepdims=True)
-    x = Dropout(pdict['dr'])(x)
+    x = Dropout(dr)(x)
     output = Flatten()(x)
     return output
 
