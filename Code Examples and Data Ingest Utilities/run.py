@@ -37,7 +37,7 @@ parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/train
                     help='an integer for the accumulator')
 parser.add_argument('--data_files', type=int, nargs='+',
                     help='an integer for the accumulator')
-parser.add_argument('--data_format', type=str,
+parser.add_argument('--data_format', type=str, default="channels_last",
                     help='an integer for the accumulator')
 parser.add_argument('--sep', type=bool, default=False)
 args = parser.parse_args()
@@ -61,7 +61,7 @@ if args.model<len(models):
     out = googleNet(input_img,data_format='channels_last', pdict=models[args.model], num_classes=args.num_classes)
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 5:
-    input_img = Input(shape=(2,1024))
+    #input_img = Input(shape=(2,1024))
     out = googleNet_2D(input_img,data_format='channels_last')
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 10:
