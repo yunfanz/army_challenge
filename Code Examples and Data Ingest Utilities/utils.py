@@ -16,7 +16,7 @@ def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues, label
     
     
 def augment(x, data_format='channels_last'):
-    if channel_last:
+    if data_format == 'channels_last':
         x_complex = x[:,:,0] + x[:,:,1]*1.j
     else:
         x_complex = x[:,0] + x[:,1]*1.j
