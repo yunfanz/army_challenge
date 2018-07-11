@@ -10,6 +10,26 @@ import keras
 from keras.layers import Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model
 from keras.utils import plot_model, multi_gpu_model
+import argparse
+
+parser = argparse.ArgumentParser(description='Process')
+parser.add_argument('--train_dir', type=str, default='/datax/yzhang/models/',
+                    help='an integer for the accumulator')
+parser.add_argument('--load_json', type=bool, default=False)
+parser.add_argument('--load_weights', type=bool, default=False)
+parser.add_argument('--epochs', type=int, default=100)
+parser.add_argument('--batch_size', type=int, default=512)
+parser.add_argument('--val_file', type=int, default=13)
+parser.add_argument('--test_file', type=int, default=14)
+parser.add_argument('--mod_group', type=int, default=0)
+parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
+                    help='an integer for the accumulator')
+parser.add_argument('--data_files', type=int, nargs='+',
+                    help='an integer for the accumulator')
+parser.add_argument('--data_format', type=str, default="channels_last",
+                    help='an integer for the accumulator')
+parser.add_argument('--sep', type=bool, default=False)
+args = parser.parse_args()
 
 
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
@@ -17,13 +37,15 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
  'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
  'QAM32', 'QAM64', 'QPSK']
 
-mods = np.array([1,9,10,11,12,13])
+all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), np.array([4,5]), np.array([1,9])]
+mods = all_mods[args.mod_group]
 num_classes = mods.size
-BASEDIR = '/datax/yzhang/training_data/'
-model_path = '/datax/yzhang/sub_classifier1.h5'
+BASEDIR = args.data_dir
+model_path = args.train_dir+'sub_classifier1.h5'
 
 data = []
-for i in range(13):
+for i in range(15):
+    if i in [args.val_file, args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
     
@@ -31,11 +53,11 @@ for i in range(13):
     
 
 
-data_file = BASEDIR + "training_data_chunk_13.pkl"
+data_file = BASEDIR + "training_data_chunk_" + str(args.val_file) + ".pkl"
 valdata = LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods])
 
 
-data_file = BASEDIR + "training_data_chunk_14.pkl"
+data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
 testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
 
 
@@ -109,7 +131,7 @@ model.summary()
 
 
 
-train_batch_size, number_of_epochs = 512, 100
+train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
 val_batches = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
 vsteps = valdata.train_idx.size//train_batch_size
@@ -155,7 +177,7 @@ train_batches = train_batches()
 
 model = multi_gpu_model(model, gpus=2)
 model.compile(loss='categorical_crossentropy', optimizer='adam')
-filepath = '/datax/yzhang/sub_model.h5'
+filepath = args.train_dir+'sub_model.h5'
 
 # model.load_weights(filepath)
 history = model.fit_generator(train_batches,

@@ -8,7 +8,28 @@ from matplotlib.pyplot import figure
 import keras
 from keras.layers import Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model, load_model
-from keras.utils import plot_model, multi_gpu_model
+import argparse
+
+parser = argparse.ArgumentParser(description='Process')
+parser.add_argument('--train_dir', type=str, default='./log/model_9/',
+                    help='an integer for the accumulator')
+parser.add_argument('--load_json', type=bool, default=False)
+parser.add_argument('--load_weights', type=bool, default=False)
+parser.add_argument('--train', type=bool, default=False)
+parser.add_argument('--model', type=int, default=2,
+                    help='an integer for the accumulator')
+parser.add_argument('--epochs', type=int, default=10,
+                    help='an integer for the accumulator')
+parser.add_argument('--num_classes', type=int, default=24,
+                    help='an integer for the accumulator')
+parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/training_data/',
+                    help='an integer for the accumulator')
+parser.add_argument('--data_files', type=int, nargs='+',
+                    help='an integer for the accumulator')
+parser.add_argument('--data_format', type=str, default="channels_last",
+                    help='an integer for the accumulator')
+parser.add_argument('--sep', type=bool, default=False)
+args = parser.parse_args()
 
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
  'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
