@@ -12,25 +12,31 @@ from keras.models import Model
 from keras.utils import plot_model, multi_gpu_model
 
 
+CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
+ 'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
+ 'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
+ 'QAM32', 'QAM64', 'QPSK']
 
+mods = np.array([1,9,10,11,12,13])
+num_classes = mods.size
 BASEDIR = '/datax/yzhang/training_data/'
-model_path = '/datax/yzhang/morad_classifier1.h5'
+model_path = '/datax/yzhang/sub_classifier1.h5'
 
 data = []
 for i in range(13):
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
-    data.append(LoadModRecData(data_file, 1., 0., 0.))
+    data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
     
 
     
 
 
 data_file = BASEDIR + "training_data_chunk_13.pkl"
-valdata = LoadModRecData(data_file, 1., 0., 0.)
+valdata = LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods])
 
 
 data_file = BASEDIR + "training_data_chunk_14.pkl"
-testdata = LoadModRecData(data_file, 0., 0., 1.)
+testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
 
 
 #global conv_index
@@ -57,7 +63,7 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
     print()
     return output
 
-def googleNet(x, data_format='channels_last'):
+def googleNet(x, data_format='channels_last', num_classes=24):
 #     num_layers = [2,4,10,4]
     num_layers = [1,2,2,1]
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
@@ -79,12 +85,12 @@ def googleNet(x, data_format='channels_last'):
 
     x = Dropout(0.45)(x)
     output = Flatten()(x)
-    out    = Dense(24, activation='softmax')(output)
+    out    = Dense(num_classes, activation='softmax')(output)
     return out
 
 in_shp = (2, 1024)
 input_img = Input(shape=in_shp)
-out = googleNet(input_img,data_format='channels_last')
+out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
 model = Model(inputs=input_img, outputs=out)
 model.summary()
 
@@ -149,7 +155,7 @@ train_batches = train_batches()
 
 model = multi_gpu_model(model, gpus=2)
 model.compile(loss='categorical_crossentropy', optimizer='adam')
-filepath = '/datax/yzhang/morad_model.h5'
+filepath = '/datax/yzhang/sub_model.h5'
 
 # model.load_weights(filepath)
 history = model.fit_generator(train_batches,
@@ -199,11 +205,5 @@ for snr in testdata.snrValues:
     acc[snr] = 1.0*cor/(cor+ncor)
 
 
-
-message = client.messages.create(
-                              body='Finished Training!',
-                              from_='+14156104527',
-                              to='+19257322858'
-                          )
 
 print("Done")

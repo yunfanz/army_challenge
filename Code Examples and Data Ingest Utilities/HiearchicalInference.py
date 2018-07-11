@@ -1,6 +1,6 @@
 import numpy as np
 from data_loader import *
-
+from utils import *
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
@@ -16,12 +16,13 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
  'QAM32', 'QAM64', 'QPSK']
 
 mods = np.array([1,9,10,11,12,13])
-BASEDIR = '/datax/yzhang/training_data/'
-m_path = '/datax/yzhang/morad_classifier1.h5'
-s_path = '/datax/yzhang/sub_classifier1.h5'
+BASEDIR = '/datax/yzhang/models/'
+DATABASE = '/datax/yzhang/training_data/'
+m_path = BASEDIR+'morad_classifier1.h5'
+s_path = BASEDIR+'sub_classifier1.h5'
 
-data_file = BASEDIR + "training_data_chunk_14.pkl"
-testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
+data_file = DATABASE + "training_data_chunk_14.pkl"
+testdata = LoadModRecData(data_file, 0., 0., 1.)
 
 model = load_model(m_path)
 submodel = load_model(s_path)
@@ -44,6 +45,7 @@ for snr in testdata.snrValues:
 
     # estimate classes
     test_Y_i_hat = model.predict(test_X_i) # shape (batch, nmods)
+    sub_Y_i_hat = submodel.predict(test_X_i)
     conf = np.zeros([len(classes),len(classes)])
     confnorm = np.zeros([len(classes),len(classes)])
 
@@ -53,15 +55,16 @@ for snr in testdata.snrValues:
         k = int(np.argmax(test_Y_i_hat[i,:]))
         if k in mods:
             sub_sum = np.sum(test_Y_i_hat[i,mods])
-            sub_hat = submodel.predict(test_X_i[i])
+            sub_hat = sub_Y_i_hat[i]
             test_Y_i_hat[i,mods] = sub_sum * sub_hat
             k = int(np.argmax(test_Y_i_hat[i,:]))
 
         conf[j,k] = conf[j,k] + 1
     for i in range(0,len(classes)):
         confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
-    # plt.figure(figsize=(10,10))
-    # plot_confusion_matrix(confnorm, labels=classes, title="ConvNet Confusion Matrix (SNR=%d)"%(snr))
+    plt.figure(figsize=(10,10))
+    plot_confusion_matrix(confnorm, labels=classes, title="hiearchical (SNR=%d)"%(snr))
+    plt.savefig(BASEDIR+"ConfusionMatrixSNR=%d"%(snr))
     
     cor = np.sum(np.diag(conf))
     ncor = np.sum(conf) - cor
