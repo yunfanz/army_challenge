@@ -20,6 +20,7 @@ parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--val_file', type=int, default=13)
+#parser.add_argument('--', type=int, default=13)
 parser.add_argument('--test_file', type=int, default=14)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
@@ -42,7 +43,8 @@ mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.data_dir
 model_path = args.train_dir+'sub_classifier1.h5'
-
+if not os.path.exists(args.train_dir):
+     os.makedirs(args.train_dir)
 data = []
 for i in range(15):
     if i in [args.val_file, args.test_file]: continue
