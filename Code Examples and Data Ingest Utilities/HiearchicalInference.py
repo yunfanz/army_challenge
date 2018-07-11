@@ -17,15 +17,14 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
 
 mods = np.array([1,9,10,11,12,13])
 BASEDIR = '/datax/yzhang/training_data/'
-model_path = '/datax/yzhang/morad_classifier1.h5'
-
+m_path = '/datax/yzhang/morad_classifier1.h5'
+s_path = '/datax/yzhang/sub_classifier1.h5'
 
 data_file = BASEDIR + "training_data_chunk_14.pkl"
 testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
 
-model = load_model(model_path)
-filepath = '/datax/yzhang/morad_model.h5'
-
+model = load_model(m_path)
+submodel = load_model(s_path)
 
 acc = {}
 snrs = np.arange(-15,15, 5)
@@ -44,15 +43,21 @@ for snr in testdata.snrValues:
     test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
 
     # estimate classes
-    test_Y_i_hat = model.predict(test_X_i)
+    test_Y_i_hat = model.predict(test_X_i) # shape (batch, nmods)
     conf = np.zeros([len(classes),len(classes)])
     confnorm = np.zeros([len(classes),len(classes)])
+
+    sublist = []
     for i in range(0,test_X_i.shape[0]):
         j = list(test_Y_i[i,:]).index(1)
         k = int(np.argmax(test_Y_i_hat[i,:]))
         if k in mods:
-            k = (np.abs(mods - k)).argmin() # get index in mods
-            conf[j,k] = conf[j,k] + 1
+            sub_sum = np.sum(test_Y_i_hat[i,mods])
+            sub_hat = submodel.predict(test_X_i[i])
+            test_Y_i_hat[i,mods] = sub_sum * sub_hat
+            k = int(np.argmax(test_Y_i_hat[i,:]))
+
+        conf[j,k] = conf[j,k] + 1
     for i in range(0,len(classes)):
         confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
     # plt.figure(figsize=(10,10))
