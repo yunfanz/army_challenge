@@ -1,12 +1,12 @@
 import os,random
 import numpy as np
 from keras.utils import np_utils
-import keras.models as models
-from keras.models import model_from_json
+import keras.models
+from keras.models import model_from_json, Sequential
 from keras.layers.core import Reshape,Dense,Dropout,Activation,Flatten
 from keras.layers.noise import GaussianNoise
-from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
-from keras.layers.recurrent import LSTM
+from keras.layers.convolutional import Conv1D, Convolution2D, MaxPooling2D, ZeroPadding2D
+from keras.layers.recurrent import LSTM, GRU
 from keras.backend import squeeze
 from keras.regularizers import *
 from keras.callbacks import TensorBoard, ReduceLROnPlateau
@@ -31,11 +31,15 @@ parser.add_argument('--model', type=int, default=2,
                     help='an integer for the accumulator')
 parser.add_argument('--epochs', type=int, default=10,
                     help='an integer for the accumulator')
+parser.add_argument('--num_classes', type=int, default=24,
+                    help='an integer for the accumulator')
 parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/training_data/',
                     help='an integer for the accumulator')
 parser.add_argument('--data_files', type=int, nargs='+',
                     help='an integer for the accumulator')
-
+parser.add_argument('--data_format', type=str, default="channels_last",
+                    help='an integer for the accumulator')
+parser.add_argument('--sep', type=bool, default=False)
 args = parser.parse_args()
 """ Sample usage:
 CUDA_VISIBLE_DEVICES=3 python run.py --train_dir=./log/model_277/ --model 2 --data_files 0 1 --epochs 2
@@ -43,15 +47,40 @@ CUDA_VISIBLE_DEVICES=3 python run.py --train_dir=./log/model_277/ --model 2 --da
 if not os.path.exists(args.train_dir):
     os.makedirs(args.train_dir)
 
-
-model_9 = {'depths': np.array([2, 2, 1, 0, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
-model_44 = {'depths': np.array([2, 2, 0, 3, 0, 0, 2]), 'features': np.array([1, 3, 1, 2, 2, 2, 2, 2]), 'dr': 0.24749480935162974}
-model_277 = {'depths': np.array([1, 1, 0, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3, 3]), 'dr': 0.54753203788931493}
-models = [model_9, model_44, model_277]
+print('Data dir:', args.data_dir)
+model_9 = {'depths': np.array([2, 2, 1, 0, 2, 1]), 'features': np.array([3, 2, 3, 3, 3, 3, 3]), 'dr': 0.67561133072930946}
+model_44 = {'depths': np.array([2, 2, 0, 3, 0, 2]), 'features': np.array([1, 3, 1, 2, 2, 2, 2]), 'dr': 0.24749480935162974}
+model_277 = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
+model_0 = {'depths': np.array([2, 2, 2, 2, 2, 2]), 'features': np.array([2, 2, 2, 2, 2, 2, 2]), 'dr': 0.6}
+models = [model_0, model_9, model_44, model_277]
 
 input_img = Input(shape=(1024,2))
-out = googleNet(input_img,data_format='channels_last', pdict=models[args.model])
-model = Model(inputs=input_img, outputs=out)
+if args.model<len(models):
+    print("Using model")
+    print(models[args.model])
+    out = googleNet(input_img,data_format='channels_last', pdict=models[args.model], num_classes=args.num_classes)
+    model = Model(inputs=input_img, outputs=out)
+elif args.model == 5:
+    #input_img = Input(shape=(2,1024))
+    out = googleNet_2D(input_img,data_format='channels_last')
+    model = Model(inputs=input_img, outputs=out)
+elif args.model == 10:
+    x = Conv1D(filters=32, kernel_size=5, padding='same', activation='relu')(input_img)
+    x = MaxPooling1D(pool_size=2)(x)
+    x = LSTM(256, return_sequences=True)(x)
+    x = LSTM(256)(x)
+    #x = LSTM(150)(x)
+    #x = LSTM(150)(x)
+    x = Dense(args.num_classes, activation='sigmoid')(x)
+    model = Model(input_img, x)
+elif args.model == 11:
+    x = Conv1D(filters=32, kernel_size=5, padding='same', activation='relu')(input_img)
+    x = MaxPooling1D(pool_size=2)(x)
+    #x = LSTM(150, return_sequences=True)(x)
+    x = GRU(256, return_sequences=True)(x)
+    x = GRU(256)(x)
+    x = Dense(args.num_classes, activation='sigmoid')(x)
+    model = Model(input_img, x)
 
 model.compile(loss=keras.losses.categorical_crossentropy,
                       optimizer=keras.optimizers.Adadelta(),
@@ -73,15 +102,24 @@ if args.load_weights:
     # load weights into new model
     model.load_weights(args.train_dir+"weights.h5")
 if args.train:
-    x_train, y_train, x_val, y_val = get_data(mode='time_series',
-                                         BASEDIR='/data2/army_challenge/training_data/',
+    if not args.sep:
+        x_train, y_train, x_val, y_val = get_data(mode='time_series', data_format=args.data_format,
+                                         #load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
+                                         BASEDIR=args.data_dir,
                                          files=args.data_files)
-    model.fit(x_train, y_train,
-              batch_size=128,
-              epochs=args.epochs,
-              verbose=1,
-              validation_data=(x_val, y_val),
-              callbacks=[reduce_lr, t_board])
+    for e in range(args.epochs):
+        if args.sep:
+            x_train, y_train, x_val, y_val = get_data(mode='time_series', data_format=args.data_format,
+                                         #load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
+                                         BASEDIR=args.data_dir,
+                                         files=[np.random.choice(args.data_files)])
+        #x_train = augment(x_train)
+        model.fit(x_train, y_train,
+                  batch_size=128,
+                  epochs=1,
+                  verbose=2,
+                  validation_data=(x_val, y_val),
+                  callbacks=[reduce_lr, t_board])
     model.save_weights(args.train_dir+"weights.h5")
     model_json = model.to_json()
     with open(args.train_dir+"model.json", "w") as json_file:
@@ -90,7 +128,7 @@ if args.train:
 
 
 test_file = args.data_dir+"training_data_chunk_14.pkl"
-testdata = LoadModRecData(test_file, 0., 0., 1.)
+testdata = LoadModRecData(test_file, 0., 0., 1.)#, load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],)
 # Plot confusion matrix
 acc = {}
 snrs = np.arange(-15,15, 5)

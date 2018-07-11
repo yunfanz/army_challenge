@@ -14,7 +14,7 @@ class TrainWorker(Process):
         self.x_train, self.y_train, self.x_val, self.y_val = data
         self.train_size, self.val_size = self.x_train.shape[0], self.x_val.shape[0]
 
-    def train_model(self, theta, k, resource):
+    def train_model(self, theta, k, resource, num_classes=5):
         import keras
         from keras.datasets import mnist
         from keras.models import Sequential
@@ -25,10 +25,10 @@ class TrainWorker(Process):
         import numpy as np
         import os
         from inception import googleNet, get_pdict
+        from resnet2D import ResnetBuilder
         
         
         
-        num_classes = 24
         if resource < 1:
             train_size, val_size = int(resource*self.train_size), int(resource*self.val_size)
             train_idx = np.random.choice(range(self.train_size), train_size)
@@ -44,11 +44,11 @@ class TrainWorker(Process):
         if self.name == 2:
             batch_size = 128
         else:
-            batch_size = 256
+            batch_size = 128
         print("starting on", self.name, 'rung', k, 'epochs', epochs, 'train_size', x_train.shape[0])
         
         input_img = Input(shape=(1024,2))
-        out = googleNet(input_img,data_format='channels_last', pdict=theta)
+        out = googleNet(input_img,data_format='channels_last', pdict=theta, num_classes=num_classes)
         model = Model(inputs=input_img, outputs=out)
         #model.summary()
         print(theta)
@@ -56,11 +56,13 @@ class TrainWorker(Process):
                       optimizer=keras.optimizers.Adadelta(),
                       metrics=['accuracy'])
         #print('model compiled')
-        model.fit(x_train, y_train,
-                  batch_size=batch_size,
-                  epochs=epochs,
-                  verbose=0,
-                  validation_data=(x_val, y_val))
+        for e in range(epochs):
+            x_train = augment(x_train)
+            model.fit(x_train, y_train,
+                      batch_size=batch_size,
+                      epochs=1,
+                      verbose=0,
+                      validation_data=(x_val, y_val))
         score = model.evaluate(self.x_val, self.y_val, verbose=0)
         return score
 
@@ -76,7 +78,7 @@ class TrainWorker(Process):
                 self.result_q.put((idx, theta, k, score[0]))
                 
 class JobManager(Process):
-    def __init__(self, train_worker, task_q: Queue, result_q: Queue, ladder, stop_event: Event):
+    def __init__(self, train_worker, task_q: Queue, result_q: Queue, ladder, stop_event: Event, bracket=0):
         super().__init__()
         self.train_worker = train_worker
         self.result_q = result_q
@@ -84,16 +86,21 @@ class JobManager(Process):
         self.ladder = ladder
         self.stop_event = stop_event
         self.eta = 3
-        self.KMAX = 6
-        self.resource_min = 0.1
-        self.bracket = 0
+        self.KMAX = 5
+        self.resource_min = 1
+        self.bracket = bracket
         self.idx = 0
+       #{'depths': array([3, 1, 1, 1, 2, 2]), 'features': array([6, 1, 7, 1, 2, 2, 2]), 'dr': 0.57682381938416705}, 1.0342028187612693), 179: ({'depths': array([3, 3, 3, 2, 0, 2]), 'features': array([1, 2, 3, 2, 3, 4, 2]), 'dr': 0.26244661792652291}
         while not self.task_q.full():
-            theta = get_pdict(mode='orig')
-            if self.idx % 2 ==0 :
-                theta['dr'] = 0.4
-            if self.idx > 1:
-                theta['features'] = np.ones_like(theta['features'])
+            if self.idx == 0:
+                theta = {'depths': np.array([3, 1, 1, 1, 2, 2]), 'features': np.array([6, 1, 7, 1, 2, 2, 2]), 'dr': 0.57682381938416705}
+            elif self.idx== 1:
+                theta = {'depths': np.array([3, 3, 3, 2, 0, 2]), 'features': np.array([1, 2, 3, 2, 3, 4, 2]), 'dr': 0.26244661792652291}
+            elif self.idx == 2:
+                theta = {'depths': np.array([1, 1, 0, 0, 0, 1]), 'features': np.array([3, 1, 2, 2, 3, 3, 3]), 'dr': 0.54753203788931493}
+            else:
+                theta = get_pdict(mode='orig')
+            
             self.task_q.put((self.idx, theta, 0,self.resource_min*self.eta**(0+self.bracket)))
             self.update_ladder(k=0)
             self.idx += 1
@@ -158,18 +165,19 @@ class JobManager(Process):
                 
 
 class async_SHA:
-    def __init__(self, data, ngpu=2):
+    def __init__(self, data, ngpu=2, bracket=0):
         self.stop_event = Event()
         self.result_q = Queue(4)
         self.ladder = []
         self.ngpu = ngpu
+        self.bracket = bracket
         self.task_q = Queue(ngpu)
         
     def run(self):
         self.train_worker = {pid: TrainWorker(data, self.task_q, self.result_q, self.stop_event, name=str(pid)) for pid in range(self.ngpu)}
         for w in self.train_worker.values():
             w.start()
-        self.job_manager = JobManager(self.train_worker, self.task_q, self.result_q, self.ladder, self.stop_event)
+        self.job_manager = JobManager(self.train_worker, self.task_q, self.result_q, self.ladder, self.stop_event, bracket=self.bracket)
         self.job_manager.start()
         if self.stop_event.is_set():
             print(self.ladder)
@@ -187,10 +195,13 @@ if __name__ == '__main__':
     parser.add_argument('--ngpu', type=int, default=2,
                     help='number of available gpus')
     parser.add_argument('--data_dir', dest='data_dir', type=str)
+    parser.add_argument('--bracket', type=int, default=0,
+                    help='bracket to use')
     args = parser.parse_args()
     x_train, y_train, x_val, y_val = get_data(mode='time_series',
                                          BASEDIR=args.data_dir,
-                                         files=[0,1,2,3,4])
+                                         load_mods=['CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB', 'GFSK_5KHz'],
+                                         files=[0,1,2,3,4,5,6,7,8,9, 10,11,12,13])
     data = (x_train, y_train, x_val, y_val)
-    a = async_SHA(data, ngpu=args.ngpu)
+    a = async_SHA(data, ngpu=args.ngpu, bracket=args.bracket)
     a.run()

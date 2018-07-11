@@ -53,7 +53,7 @@ class LoadModRecData:
 
     '''
 
-    def __init__(self, datafile, trainRatio, validateRatio, testRatio):
+    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None):
         ''' init
 
             .. note::
@@ -68,13 +68,15 @@ class LoadModRecData:
 
         print(TAG + "Loading Data...")
 
-        self.signalData, self.oneHotLabels, self.signalLabels = self.loadData(datafile)
+        self.signalData, self.oneHotLabels, self.signalLabels = self.loadData(datafile, load_mods=load_mods)
         self.train_idx, self.val_idx, self.test_idx = self.split(trainRatio, validateRatio, testRatio)
 
         print(TAG + "Done.\n")
 
-    def loadData(self, fname):
+    def loadData(self, fname, load_mods):
         '''  Load dataset from pickled file '''
+        
+        
 
         # load data from files
         with open(fname, 'rb') as f:
@@ -86,7 +88,10 @@ class LoadModRecData:
                 dataCubeKeyIndices = zip(*self.dataCube)
 
         # get all mod types
-        self.modTypes = np.unique(dataCubeKeyIndices[0])
+        if load_mods is None:
+            self.modTypes = np.unique(dataCubeKeyIndices[0])
+        else:
+            self.modTypes = load_mods
 
         # get all SNR values
         self.snrValues = np.unique(dataCubeKeyIndices[1])
