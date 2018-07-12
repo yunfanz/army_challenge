@@ -4,8 +4,6 @@ from data_loader import *
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
-
-
 import keras
 from keras.layers import Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model
@@ -142,7 +140,7 @@ vsteps = valdata.train_idx.size//train_batch_size
 generators = []
 tsteps = 0
 for d in data:
-    generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=False))
+    generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True))
     tsteps += d.train_idx.size
 
 tsteps = tsteps//train_batch_size 
@@ -188,10 +186,13 @@ history = model.fit_generator(train_batches,
     verbose=2,
     validation_data=val_batches,
     validation_steps=vsteps,
-     callbacks = [
+    callbacks = [
           keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
-          keras.callbacks.EarlyStopping(monitor='val_loss', patience=8    , verbose=0, mode='auto')
+          keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+                              patience=args.epochs//10, min_lr=0.0001)
+          #keras.callbacks.EarlyStopping(monitor='val_loss', patience=8    , verbose=0, mode='auto')
      ]) 
+model.load_weights(filepath)
 model.save(model_path)  
 
 acc = {}
