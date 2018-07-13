@@ -9,7 +9,7 @@ from keras.layers.convolutional import Conv1D, Convolution2D, MaxPooling2D, Zero
 from keras.layers.recurrent import LSTM, GRU
 from keras.backend import squeeze
 from keras.regularizers import *
-from keras.callbacks import TensorBoard, ReduceLROnPlateau
+from keras.callbacks import *
 from keras.optimizers import adam
 import matplotlib.pyplot as plt
 import seaborn as sns
