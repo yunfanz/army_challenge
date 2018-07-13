@@ -85,9 +85,8 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
     print()
     return output
 
-def googleNet(x, data_format='channels_last', num_classes=24):
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,2,1]):
 #     num_layers = [2,4,10,4]
-    num_layers = [1,2,2,1]
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters = 64, kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
     x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
@@ -115,21 +114,6 @@ input_img = Input(shape=in_shp)
 out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
 model = Model(inputs=input_img, outputs=out)
 model.summary()
-
-
-
-
-
-
-
-
-#plot_model(model, to_file='model.png', show_shapes = True)
-
-
-
-
-
-
 
 train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
@@ -177,7 +161,7 @@ train_batches = train_batches()
 
 model = multi_gpu_model(model, gpus=2)
 model.compile(loss='categorical_crossentropy', optimizer='adam')
-filepath = args.train_dir+'sub_model.h5'
+filepath = args.train_dir+'checkpoints.h5'
 
 # model.load_weights(filepath)
 history = model.fit_generator(train_batches,
@@ -189,8 +173,9 @@ history = model.fit_generator(train_batches,
     callbacks = [
           keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
           keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                              patience=args.epochs//10, min_lr=0.0001)
-          #keras.callbacks.EarlyStopping(monitor='val_loss', patience=8    , verbose=0, mode='auto')
+                              patience=args.epochs//10, min_lr=0.0001),
+          keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs', histogram_freq=0, batch_size=args.batch_size, write_graph=False),
+          keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.epochs//8,verbose=0, mode='auto')
      ]) 
 model.load_weights(filepath)
 model.save(model_path)  

@@ -46,7 +46,7 @@ class TrainWorker(Process):
         print("starting on", self.name, 'rung', k, 'epochs', epochs, 'train_size', x_train.shape[0])
         
         input_img = Input(shape=(1024,2))
-        out = googleNet_2d(input_img,data_format='channels_last', pdict=theta, num_classes=num_classes)
+        out = googleNet_2D(input_img,data_format='channels_last', pdict=theta, num_classes=num_classes)
         model = Model(inputs=input_img, outputs=out)
         #model.summary()
         print(theta)

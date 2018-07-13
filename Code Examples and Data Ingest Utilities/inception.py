@@ -96,15 +96,15 @@ def googleNet_2D(x, data_format='channels_last', in_shp=(1024,2), pdict={'depths
         x = Conv2D(filters = 192*f[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([3,1], strides=[2,1], padding='same')(x)
     for dep in range(num_layers[1]):
-        x = inception_2D(x, height=2, fs=np.array([32,32,32,32,32])*fs[2])
+        x = inception_2D(x, height=2, fs=np.array([32,32,32,32,32])*f[2])
     x = MaxPooling2D([3,1], strides=2, padding='same')(x)
     for dep in range(num_layers[2]):
-        x = inception_2D(x, height=2, fs=np.array([48,96,48,96,96])*fs[3], with_residual=True)
+        x = inception_2D(x, height=2, fs=np.array([48,96,48,96,96])*f[3], with_residual=True)
     for dep in range(num_layers[3]):
-        x = inception_2D(x, height=2, fs=np.array([48,96,48,96,96])*fs[4], with_residual=True)
+        x = inception_2D(x, height=2, fs=np.array([48,96,48,96,96])*f[4], with_residual=True)
     x = MaxPooling2D([3,2], strides=2, padding='same')(x)
     for dep in range(num_layers[4]):
-        x = inception_2D(x, height=1,fs=np.array([32,32,32,32,32])*fs[5])
+        x = inception_2D(x, height=1,fs=np.array([32,32,32,32,32])*f[5])
 #     x = GlobalAveragePooling1D()(x)
 #     x = Conv2D(filters=64, kernel_size=[1,1], padding='same', activation='relu')(x) # optional dim reduction
 
