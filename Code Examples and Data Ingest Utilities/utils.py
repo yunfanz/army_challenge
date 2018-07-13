@@ -26,7 +26,6 @@ def augment(x, data_format='channels_last'):
         x_complex = np.stack([x_complex.real, x_complex.imag], axis=2)
     else:
         x_complex = np.stack([x_complex.real, x_complex.imag], axis=1)    
-    print(x_complex.shape)
     return x_complex
 
 def cwt_ricker(x, widths):
@@ -44,7 +43,7 @@ def get_wavelet(x, widths = np.arange(1,21)):
     cwts = np.transpose(cwts, (0,2,1,3))
     return cwts
 
-def get_data(data_format='channel_last', mode='time_series', load_mods=None, BASEDIR="/home/mshefa/training_data/", files=[0], window='hann', nperseg=256, noverlap=200):
+def get_data(data_format='channels_last', mode='time_series', load_mods=None, BASEDIR="/home/mshefa/training_data/", files=[0], window='hann', nperseg=256, noverlap=200):
     """
     Data providing function:
 
@@ -66,9 +65,8 @@ def get_data(data_format='channel_last', mode='time_series', load_mods=None, BAS
     y_train = np.concatenate(y_train)
     x_val = np.vstack(x_val)
     y_val = np.concatenate(y_val)
-    print(x_train.shape) 
     #x_train = augment(x_train)
-    if data_format == "channel_last":
+    if data_format == "channels_last":
         x_train = np.transpose(x_train, (0,2,1))
         x_val = np.transpose(x_val, (0,2,1))
     if mode == 'time_series':

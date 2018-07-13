@@ -82,7 +82,7 @@ def inception_2D(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False
         output = output+input_img
     return output
 
-def googleNet_2D(x, data_format='channels_last', in_shp=(1024,2)):
+def googleNet_2D(x, data_format='channels_last', in_shp=(1024,2), num_classes=24):
 #     num_layers = [2,4,10,4]
     num_layers = [1,2,2,1]
     if len(in_shp)  == 2:
@@ -105,7 +105,7 @@ def googleNet_2D(x, data_format='channels_last', in_shp=(1024,2)):
 
     x = Dropout(0.45)(x)
     output = Flatten()(x)
-    out    = Dense(24, activation='softmax')(output)
+    out    = Dense(num_classes, activation='softmax')(output)
     return out
 
 def get_pdict(mode='orig'):
