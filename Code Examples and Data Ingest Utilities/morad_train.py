@@ -18,6 +18,7 @@ parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--ngpu', type=int, default=1)
+parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
 #parser.add_argument('--', type=int, default=13)
 parser.add_argument('--test_file', type=int, default=14)
@@ -168,13 +169,13 @@ filepath = args.train_dir+'checkpoints.h5'
 history = model.fit_generator(train_batches,
     nb_epoch=number_of_epochs,
     steps_per_epoch=tsteps,
-    verbose=2,
+    verbose=args.verbose,
     validation_data=val_batches,
     validation_steps=vsteps,
     callbacks = [
           keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
           #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                              patience=args.epochs//10, min_lr=0.0001),
+                              #patience=args.epochs//10, min_lr=0.0001),
           keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs', histogram_freq=0, batch_size=args.batch_size, write_graph=False),
           keras.callbacks.EarlyStopping(monitor='val_loss', patience=9,verbose=0, mode='auto')
      ]) 
