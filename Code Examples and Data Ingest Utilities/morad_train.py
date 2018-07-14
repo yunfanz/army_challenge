@@ -48,16 +48,9 @@ if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
 for i in range(15):
-    if i in [args.val_file, args.test_file]: continue
+    if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
-    
-
-    
-
-
-data_file = BASEDIR + "training_data_chunk_" + str(args.val_file) + ".pkl"
-valdata = LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods])
 
 
 data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
@@ -117,18 +110,6 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,2,1
 
 train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
-val_batches = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
-vsteps = valdata.train_idx.size//train_batch_size
-
-
-generators = []
-tsteps = 0
-for d in data:
-    generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True))
-    tsteps += d.train_idx.size
-
-tsteps = tsteps//train_batch_size 
-
 
 
 def train_batches():
@@ -154,10 +135,24 @@ def train_batches():
             yield batches_x[beg:end], batches_y[beg:end]
         
 
-train_batches = train_batches()
-
 
 for m in range(args.num_models):
+    
+    valdata = data[m]
+    
+    val_batches = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
+    vsteps = valdata.train_idx.size//train_batch_size
+
+
+    generators = []
+    tsteps = 0
+    for i, d in enumerate(data):
+        if i == m:
+            continue
+        generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True))
+        tsteps += d.train_idx.size
+    tsteps = tsteps//train_batch_size 
+    train_batches = train_batches()
     
     in_shp = (2, 1024)
     input_img = Input(shape=in_shp)
