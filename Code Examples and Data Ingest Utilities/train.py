@@ -47,7 +47,7 @@ BASEDIR = args.data_dir
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
-for i in range(3):
+for i in range(15):
     if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
@@ -171,7 +171,7 @@ for m in range(args.num_models):
               #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
                                   #patience=args.epochs//10, min_lr=0.0001),
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=2,verbose=0, mode='auto')
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=8,verbose=0, mode='auto')
              ]) 
     except(StopIteration):
         pass
