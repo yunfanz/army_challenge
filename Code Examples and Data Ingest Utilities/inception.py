@@ -82,42 +82,47 @@ def inception_2D(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False
         output = output+input_img
     return output
 
-def googleNet_2D(x, data_format='channels_last', in_shp=(1024,2)):
+def googleNet_2D(x, data_format='channels_last', in_shp=(1024,2), pdict={'depths':[1,2,0,2,1], 'features':np.ones(6, dtype='int'), 'dr':0.45}, num_classes=24):
 #     num_layers = [2,4,10,4]
-    num_layers = [1,2,2,1]
+    if pdict is not None:
+        num_layers = pdict['depths']
+        dr = pdict['dr']
+        f = pdict['features']
     if len(in_shp)  == 2:
         x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
-    x = Conv2D(filters = 64, kernel_size=[7,2], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
+    x = Conv2D(filters = 64*f[0], kernel_size=[7,2], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
     x = MaxPooling2D([3,1], strides=[2,1], padding='same')(x)
     for dep in range(num_layers[0]):
-        x = Conv2D(filters = 192, kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
+        x = Conv2D(filters = 192*f[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([3,1], strides=[2,1], padding='same')(x)
     for dep in range(num_layers[1]):
-        x = inception_2D(x, height=2, fs=[32,32,32,32,32])
+        x = inception_2D(x, height=2, fs=np.array([32,32,32,32,32])*f[2])
     x = MaxPooling2D([3,1], strides=2, padding='same')(x)
     for dep in range(num_layers[2]):
-        x = inception_2D(x, height=2, fs=[48,96,48,96,96], with_residual=True)
-    x = MaxPooling2D([3,2], strides=2, padding='same')(x)
+        x = inception_2D(x, height=2, fs=np.array([48,96,48,96,96])*f[3], with_residual=True)
     for dep in range(num_layers[3]):
-        x = inception_2D(x, height=1,fs=[32,32,32,32,32])
+        x = inception_2D(x, height=2, fs=np.array([48,96,48,96,96])*f[4], with_residual=True)
+    x = MaxPooling2D([3,2], strides=2, padding='same')(x)
+    for dep in range(num_layers[4]):
+        x = inception_2D(x, height=1,fs=np.array([32,32,32,32,32])*f[5])
 #     x = GlobalAveragePooling1D()(x)
 #     x = Conv2D(filters=64, kernel_size=[1,1], padding='same', activation='relu')(x) # optional dim reduction
 
-    x = Dropout(0.45)(x)
+    x = Dropout(dr)(x)
     output = Flatten()(x)
-    out    = Dense(24, activation='softmax')(output)
+    out    = Dense(num_classes, activation='softmax')(output)
     return out
 
 def get_pdict(mode='orig'):
     pdict = {}
     if mode == 'orig':
-        pdict['depths'] = np.ones(6, dtype=np.int)*2
-        pdict['features'] =  np.ones(7, dtype=np.int)*2
-        pdict['dr'] = 0.6
+        pdict['depths'] = np.array([1,2,0,2,1])
+        pdict['features'] =  np.ones(6, dtype=np.int)
+        pdict['dr'] = 0.45
     elif mode == 'prior':
-        pdict['depths'] = np.random.randint(low=0, high=4, size=6)
-        pdict['depths'][[0,1,5]] = np.random.randint(low=1, high=4, size=3)
-        pdict['features'] =  np.random.randint(low=1, high=8, size=7)
+        pdict['depths'] = np.random.randint(low=0, high=4, size=5)
+        pdict['depths'][[0,1,4]] = np.random.randint(low=1, high=4, size=3)
+        pdict['features'] =  np.random.randint(low=1, high=6, size=6)
         pdict['dr'] = np.random.uniform(low=0.2, high=0.8, size=1)[0]
     return pdict
 
