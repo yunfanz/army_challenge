@@ -97,16 +97,11 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,2,1
     x = MaxPooling2D([2,3], strides=2, padding='same')(x)
     for dep in range(num_layers[3]):
         x = inception(x, height=1,fs=[32,32,32,32,32])
-#     x = GlobalAveragePooling1D()(x)
-#     x = Conv2D(filters=64, kernel_size=[1,1], padding='same', activation='relu')(x) # optional dim reduction
 
     x = Dropout(0.45)(x)
     output = Flatten()(x)
     out    = Dense(num_classes, activation='softmax')(output)
     return out
-
-
-#model.summary()
 
 train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
@@ -158,13 +153,13 @@ for m in range(args.num_models):
     input_img = Input(shape=in_shp)
     out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
     model = Model(inputs=input_img, outputs=out)
-    model_path = args.train_dir+'sub_classifier{}.h5'.format(m)
+    model_path = args.train_dir+'model{}.h5'.format(m)
     if args.ngpu > 1:
         model = multi_gpu_model(model, gpus=args.ngpu)
     model.compile(loss='categorical_crossentropy', optimizer='adam')
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
 
-    # model.load_weights(filepath)
+
     history = model.fit_generator(train_batches,
         nb_epoch=number_of_epochs,
         steps_per_epoch=tsteps,
@@ -172,14 +167,17 @@ for m in range(args.num_models):
         validation_data=val_batches,
         validation_steps=vsteps,
         callbacks = [
-              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
               #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
                                   #patience=args.epochs//10, min_lr=0.0001),
-              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs', histogram_freq=0, batch_size=args.batch_size, write_graph=False),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=9,verbose=0, mode='auto')
+              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False),
+              #keras.callbacks.EarlyStopping(monitor='val_loss', patience=9,verbose=0, mode='auto')
          ]) 
     model.load_weights(filepath)
     model.save(model_path)  
+    
+    
+    #Print test accuracies
 
     acc = {}
     snrs = np.arange(-15,15, 5)
