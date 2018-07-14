@@ -18,6 +18,7 @@ parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--ngpu', type=int, default=1)
+parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
 #parser.add_argument('--', type=int, default=13)
@@ -42,7 +43,7 @@ all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), np.array([4,5]), np.arra
 mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.data_dir
-model_path = args.train_dir+'sub_classifier1.h5'
+
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
@@ -111,11 +112,8 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,2,1
     out    = Dense(num_classes, activation='softmax')(output)
     return out
 
-in_shp = (2, 1024)
-input_img = Input(shape=in_shp)
-out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-model = Model(inputs=input_img, outputs=out)
-model.summary()
+
+#model.summary()
 
 train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
@@ -159,63 +157,69 @@ def train_batches():
 train_batches = train_batches()
 
 
-
-
-model = multi_gpu_model(model, gpus=args.ngpu)
-model.compile(loss='categorical_crossentropy', optimizer='adam')
-filepath = args.train_dir+'checkpoints.h5'
-
-# model.load_weights(filepath)
-history = model.fit_generator(train_batches,
-    nb_epoch=number_of_epochs,
-    steps_per_epoch=tsteps,
-    verbose=args.verbose,
-    validation_data=val_batches,
-    validation_steps=vsteps,
-    callbacks = [
-          keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
-          #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                              #patience=args.epochs//10, min_lr=0.0001),
-          keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs', histogram_freq=0, batch_size=args.batch_size, write_graph=False),
-          keras.callbacks.EarlyStopping(monitor='val_loss', patience=9,verbose=0, mode='auto')
-     ]) 
-model.load_weights(filepath)
-model.save(model_path)  
-
-acc = {}
-snrs = np.arange(-15,15, 5)
-
-classes = testdata.modTypes
-
-print("classes ", classes)
-for snr in testdata.snrValues:
-
-    # extract classes @ SNR
-    snrThreshold_lower = snr
-    snrThreshold_upper = snr+5
-    snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
+for m in range(args.num_models):
     
-    test_X_i = testdata.signalData[snr_bounded_test_indicies]
-    test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
+    in_shp = (2, 1024)
+    input_img = Input(shape=in_shp)
+    out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+    model = Model(inputs=input_img, outputs=out)
+    model_path = args.train_dir+'sub_classifier{}.h5'.format(m)
+    if args.ngpu > 1:
+        model = multi_gpu_model(model, gpus=args.ngpu)
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
+    filepath = args.train_dir+'checkpoints{}.h5'.format(m)
 
-    # estimate classes
-    test_Y_i_hat = model.predict(test_X_i)
-    conf = np.zeros([len(classes),len(classes)])
-    confnorm = np.zeros([len(classes),len(classes)])
-    for i in range(0,test_X_i.shape[0]):
-        j = list(test_Y_i[i,:]).index(1)
-        k = int(np.argmax(test_Y_i_hat[i,:]))
-        conf[j,k] = conf[j,k] + 1
-    for i in range(0,len(classes)):
-        confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
-    # plt.figure(figsize=(10,10))
-    # plot_confusion_matrix(confnorm, labels=classes, title="ConvNet Confusion Matrix (SNR=%d)"%(snr))
-    
-    cor = np.sum(np.diag(conf))
-    ncor = np.sum(conf) - cor
-    print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
-    acc[snr] = 1.0*cor/(cor+ncor)
+    # model.load_weights(filepath)
+    history = model.fit_generator(train_batches,
+        nb_epoch=number_of_epochs,
+        steps_per_epoch=tsteps,
+        verbose=args.verbose,
+        validation_data=val_batches,
+        validation_steps=vsteps,
+        callbacks = [
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
+              #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+                                  #patience=args.epochs//10, min_lr=0.0001),
+              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs', histogram_freq=0, batch_size=args.batch_size, write_graph=False),
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=9,verbose=0, mode='auto')
+         ]) 
+    model.load_weights(filepath)
+    model.save(model_path)  
+
+    acc = {}
+    snrs = np.arange(-15,15, 5)
+
+    classes = testdata.modTypes
+
+    print("classes ", classes)
+    for snr in testdata.snrValues:
+
+        # extract classes @ SNR
+        snrThreshold_lower = snr
+        snrThreshold_upper = snr+5
+        snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
+
+        test_X_i = testdata.signalData[snr_bounded_test_indicies]
+        test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
+
+        # estimate classes
+        test_Y_i_hat = model.predict(test_X_i)
+        conf = np.zeros([len(classes),len(classes)])
+        confnorm = np.zeros([len(classes),len(classes)])
+        for i in range(0,test_X_i.shape[0]):
+            j = list(test_Y_i[i,:]).index(1)
+            k = int(np.argmax(test_Y_i_hat[i,:]))
+            conf[j,k] = conf[j,k] + 1
+        for i in range(0,len(classes)):
+            confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
+        # plt.figure(figsize=(10,10))
+        # plot_confusion_matrix(confnorm, labels=classes, title="ConvNet Confusion Matrix (SNR=%d)"%(snr))
+
+        cor = np.sum(np.diag(conf))
+        ncor = np.sum(conf) - cor
+        print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
+        acc[snr] = 1.0*cor/(cor+ncor)
 
 
 
-print("Done")
+    print("Done model {} out of {}".format(m, args.num_models))
