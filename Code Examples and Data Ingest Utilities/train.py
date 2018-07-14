@@ -47,7 +47,7 @@ BASEDIR = args.data_dir
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
-for i in range(15):
+for i in range(3):
     if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
@@ -107,7 +107,7 @@ train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
 
 
-def train_batches():
+def get_train_batches():
     while True:
         batches_x, batches_y = [], []
 
@@ -147,7 +147,7 @@ for m in range(args.num_models):
         generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True))
         tsteps += d.train_idx.size
     tsteps = tsteps//train_batch_size 
-    train_batches = train_batches()
+    train_batches = get_train_batches()
     
     in_shp = (2, 1024)
     input_img = Input(shape=in_shp)
@@ -159,20 +159,22 @@ for m in range(args.num_models):
     model.compile(loss='categorical_crossentropy', optimizer='adam')
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
 
-
-    history = model.fit_generator(train_batches,
-        nb_epoch=number_of_epochs,
-        steps_per_epoch=tsteps,
-        verbose=args.verbose,
-        validation_data=val_batches,
-        validation_steps=vsteps,
-        callbacks = [
+    try:
+        history = model.fit_generator(train_batches,
+            nb_epoch=number_of_epochs,
+            steps_per_epoch=tsteps,
+            verbose=args.verbose,
+            validation_data=val_batches,
+            validation_steps=vsteps,
+            callbacks = [
               keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
               #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
                                   #patience=args.epochs//10, min_lr=0.0001),
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False),
-              #keras.callbacks.EarlyStopping(monitor='val_loss', patience=9,verbose=0, mode='auto')
-         ]) 
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=2,verbose=0, mode='auto')
+             ]) 
+    except(StopIteration):
+        pass
     model.load_weights(filepath)
     model.save(model_path)  
     
