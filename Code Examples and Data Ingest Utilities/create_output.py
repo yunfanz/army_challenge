@@ -36,13 +36,21 @@ dataset = data.signalData
 #print('example.shape', example.shape)
 preds = model.predict(dataset)
 
-# save with 8 decimals
-fmt = '%1.0f' + preds.shape[1] * ',%1.8f'
+# save with 4 decimals
+fmt = '%1.0f' + preds.shape[1] * ',%1.4f'
 id_col = np.arange(1, dataset.shape[0] + 1)
 preds = np.insert(preds, 0, id_col, axis = 1)
 
+CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
+    'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
+    'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
+    'QAM32', 'QAM64', 'QPSK']
+# header = 'ID,BPSK,QPSK, 8PSK, 16PSK, QAM16, QAM64, 2FSK_5KHz, 2FSK_75KHz, GFSK_75KHz, GFSK_5KHz, GMSK, MSK, CPFSK_75KHz, CPFSK_5KHz, APSK16_c34, APSK32_c34, QAM32, OQPSK, PI4QPSK, FM_NB, FM_WB, AM_DSB, AM_SSB, NOISE\n'
 
-header = 'ID,BPSK,QPSK, 8PSK, 16PSK, QAM16, QAM64, 2FSK_5KHz, 2FSK_75KHz, GFSK_75KHz, GFSK_5KHz, GMSK, MSK, CPFSK_75KHz, CPFSK_5KHz, APSK16_c34, APSK32_c34, QAM32, OQPSK, PI4QPSK, FM_NB, FM_WB, AM_DSB, AM_SSB, NOISE\n'
+header = "ID,"
+for i in range(len(CLASSES) - 1):
+    header += CLASSES[i]+','
+header += CLASSES[-1]
 f=open(output_path, 'w')
 f.write(header)
 f.close()

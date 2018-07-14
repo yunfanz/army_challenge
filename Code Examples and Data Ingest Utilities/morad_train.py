@@ -17,6 +17,7 @@ parser.add_argument('--load_json', type=bool, default=False)
 parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=512)
+parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--val_file', type=int, default=13)
 #parser.add_argument('--', type=int, default=13)
 parser.add_argument('--test_file', type=int, default=14)
@@ -159,7 +160,7 @@ train_batches = train_batches()
 
 
 
-model = multi_gpu_model(model, gpus=2)
+model = multi_gpu_model(model, gpus=args.ngpu)
 model.compile(loss='categorical_crossentropy', optimizer='adam')
 filepath = args.train_dir+'checkpoints.h5'
 
@@ -172,10 +173,10 @@ history = model.fit_generator(train_batches,
     validation_steps=vsteps,
     callbacks = [
           keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
-          keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+          #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
                               patience=args.epochs//10, min_lr=0.0001),
           keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs', histogram_freq=0, batch_size=args.batch_size, write_graph=False),
-          keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.epochs//8,verbose=0, mode='auto')
+          keras.callbacks.EarlyStopping(monitor='val_loss', patience=9,verbose=0, mode='auto')
      ]) 
 model.load_weights(filepath)
 model.save(model_path)  

@@ -43,7 +43,7 @@ def get_wavelet(x, widths = np.arange(1,21)):
     cwts = np.transpose(cwts, (0,2,1,3))
     return cwts
 
-def get_data(data_format='channels_last', mode='time_series', load_mods=None, BASEDIR="/home/mshefa/training_data/", files=[0], window='hann', nperseg=256, noverlap=200):
+def get_data(data_format='channels_last', mode='time_series', load_mods=None, load_snrs=None, BASEDIR="/home/mshefa/training_data/", files=[0], window='hann', nperseg=256, noverlap=200):
     """
     Data providing function:
 
@@ -55,7 +55,7 @@ def get_data(data_format='channels_last', mode='time_series', load_mods=None, BA
     x_train, y_train, x_val, y_val = [], [], [], []
     for f in files:
         data_file = BASEDIR+"training_data_chunk_0.pkl"
-        data = LoadModRecData(data_file, .9, .1, 0., load_mods=load_mods)
+        data = LoadModRecData(data_file, .9, .1, 0., load_mods=load_mods, load_snrs=load_snrs)
     
         x_train.append(data.signalData[data.train_idx])
         y_train.append(data.oneHotLabels[data.train_idx]) 
@@ -94,7 +94,7 @@ def get_fourier(cdata, window='hann', nperseg=256, noverlap=220):
 #     ft = np.fft.fftshift(np.fft.fft(fold, axis=-1))
     fts = []
     for i in range(batch_size):
-        _, _, ft = stft(cdata[i], window=window, nperseg=nperseg, noverlap=noverlap)
+        _, _, ft = stft(cdata[i], window=window, nperseg=nperseg, noverlap=noverlap, return_onesided=False)
         #ft = np.fft.fftshift(ft, axes=-1)
         fts.append(ft)
     fts = np.asarray(fts)
@@ -115,7 +115,26 @@ def get_welch(cdata, window='hann', nperseg=256, noverlap=220, remove_DC=True):
             fdata = np.fft.fft(tdata)
             fdata[0] = 0.
             tdata = np.fft.ifft(fdata)
-        _,ft = welch(tdata, window=window, nperseg=nperseg, noverlap=noverlap)
+        _,ft = welch(tdata, window=window, nperseg=nperseg, noverlap=noverlap, return_onesided=False)
+        fts.append(ft)
+    fts = np.asarray(fts)
+    return fts[...,np.newaxis]
+
+def get_periodogram(cdata, nfft=512, remove_DC=False):
+    """input must be (batch_size, 1024, 2) real time series"""
+    if len(cdata.shape) == 3:
+        cdata = cdata[...,0] + cdata[...,1]*1.j
+        cdata = cdata.astype(np.complex64)
+    batch_size = cdata.shape[0]
+    print(cdata.shape)
+    fts = []
+    for i in range(batch_size):
+        tdata = cdata[i]
+        if remove_DC:
+            fdata = np.fft.fft(tdata)
+            fdata[0] = 0.
+            tdata = np.fft.ifft(fdata)
+        _,ft = welch(tdata, nfft=nfft, return_onesided=False)
         fts.append(ft)
     fts = np.asarray(fts)
     return fts[...,np.newaxis]
