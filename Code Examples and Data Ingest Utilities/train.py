@@ -18,6 +18,7 @@ parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--ngpu', type=int, default=1)
+parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
@@ -107,7 +108,7 @@ train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
 
 
-def get_train_batches():
+def get_train_batches(generators):
     while True:
         batches_x, batches_y = [], []
 
@@ -127,15 +128,27 @@ def get_train_batches():
         for i in range(len(generators)):
             beg = i * train_batch_size
             end = beg + train_batch_size
-            yield batches_x[beg:end], batches_y[beg:end]
+            bx, by = batches_x[beg:end], batches_y[beg:end]
+            if args.crop_to < 1024:
+                c_start = np.random.randint(low=0, high=1024-args.crop_to)
+                bx = bx[...,c_start:c_start+args.crop_to]
+                assert bx.shape[-1] == args.crop_to
+            yield bx, by
         
-
+def get_val_batches(gen):
+    while True:
+        bx, by = next(gen)
+        if args.crop_to < 1024:
+            c_start = np.random.randint(low=0, high=1024-args.crop_to)
+            bx = bx[...,c_start:c_start+args.crop_to]
+            assert bx.shape[-1] == args.crop_to
+        yield bx, by
 
 for m in range(args.num_models):
     
     valdata = data[m]
     
-    val_batches = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
+    val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
     vsteps = valdata.train_idx.size//train_batch_size
 
 
@@ -147,9 +160,10 @@ for m in range(args.num_models):
         generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True))
         tsteps += d.train_idx.size
     tsteps = tsteps//train_batch_size 
-    train_batches = get_train_batches()
-    
-    in_shp = (2, 1024)
+    train_batches = get_train_batches(generators)
+    val_batches = get_val_batches(val_gen)
+
+    in_shp = (2, args.crop_to)
     input_img = Input(shape=in_shp)
     out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
     model = Model(inputs=input_img, outputs=out)
