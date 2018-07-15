@@ -129,6 +129,8 @@ def get_train_batches(generators):
             beg = i * train_batch_size
             end = beg + train_batch_size
             bx, by = batches_x[beg:end], batches_y[beg:end]
+            if False and np.random.random()>0.5:
+                bx = bx[...,::-1]
             if args.crop_to < 1024:
                 c_start = np.random.randint(low=0, high=1024-args.crop_to)
                 bx = bx[...,c_start:c_start+args.crop_to]
@@ -196,6 +198,7 @@ for m in range(args.num_models):
     #Print test accuracies
 
     acc = {}
+    scores = {}
     snrs = np.arange(-15,15, 5)
 
     classes = testdata.modTypes
@@ -210,7 +213,8 @@ for m in range(args.num_models):
 
         test_X_i = testdata.signalData[snr_bounded_test_indicies]
         test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
-
+        
+        sc, ac = model.evaluate(test_X_i, test_Y_i, batch_size=256)
         # estimate classes
         test_Y_i_hat = model.predict(test_X_i)
         conf = np.zeros([len(classes),len(classes)])
@@ -226,7 +230,7 @@ for m in range(args.num_models):
 
         cor = np.sum(np.diag(conf))
         ncor = np.sum(conf) - cor
-        print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
+        print("SNR", snr, "Loss", sc, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
         acc[snr] = 1.0*cor/(cor+ncor)
 
 
