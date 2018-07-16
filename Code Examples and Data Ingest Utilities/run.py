@@ -9,7 +9,7 @@ from keras.layers.convolutional import Conv1D, Convolution2D, MaxPooling2D, Zero
 from keras.layers.recurrent import LSTM, GRU
 from keras.backend import squeeze
 from keras.regularizers import *
-from keras.callbacks import TensorBoard, ReduceLROnPlateau
+from keras.callbacks import *
 from keras.optimizers import adam
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -75,7 +75,7 @@ if args.model<len(models):
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 4:
     #input_img = Input(shape=(2,1024))
-    out = googleNet_2D(input_img,data_format='channels_last', num_layers=[1,2,4,2], num_classes=num_classes)
+    out = googleNet_2D(input_img,data_format='channels_last', pdict={'depths':[1,2,2,2,1], 'features':np.ones(6, dtype='int'), 'dr':0.45}, num_classes=num_classes)
     model = Model(inputs=input_img, outputs=out)
 elif args.model == 5:
     #input_img = Input(shape=(2,1024))
@@ -106,7 +106,8 @@ model.compile(loss=keras.losses.categorical_crossentropy,
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,
                               patience=args.epochs//10, min_lr=0.0001)
 t_board = TensorBoard(log_dir=args.train_dir, histogram_freq=0, batch_size=32, write_graph=True, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None, embeddings_data=None)
-
+checkpath = args.train_dir+"checkpoint.h5"
+checkpt = ModelCheckpoint(checkpath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto')
 #print('model compiled')
 
 if args.load_json:
@@ -130,13 +131,14 @@ if args.train:
                                          load_mods=[CLASSES[mod] for mod in mods],
                                          BASEDIR=args.data_dir,
                                          files=[np.random.choice(args.data_files)])
-        x_train = augment(x_train)
+        #x_train = augment(x_train)
         model.fit(x_train, y_train,
                   batch_size=256,
                   epochs=1,
                   verbose=args.verbose,
                   validation_data=(x_val, y_val),
-                  callbacks=[reduce_lr, t_board])
+                  callbacks=[reduce_lr, t_board, checkpt])
+    model.load_weights(checkpath)
     model.save(args.train_dir+"model.h5")
     model.save_weights(args.train_dir+"weights.h5")
     model_json = model.to_json()

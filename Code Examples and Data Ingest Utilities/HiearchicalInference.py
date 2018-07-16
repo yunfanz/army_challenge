@@ -28,7 +28,7 @@ parser.add_argument('--data_files', type=int, nargs='+',
                     help='an integer for the accumulator')
 parser.add_argument('--data_format', type=str, default="channels_last",
                     help='an integer for the accumulator')
-parser.add_argument('--sep', type=bool, default=False)
+parser.add_argument('--save_csv', type=bool, default=False)
 args = parser.parse_args()
 
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
@@ -41,6 +41,8 @@ BASEDIR = '/datax/yzhang/models/'
 DATABASE = '/datax/yzhang/training_data/'
 m_path = BASEDIR+'morad_classifier1.h5'
 s_path = BASEDIR+'sub_classifier1.h5'
+
+output_path = BASEDIR+"TestSet1Predictions.csv"
 
 data_file = DATABASE + "training_data_chunk_14.pkl"
 testdata = LoadModRecData(data_file, 0., 0., 1.)
@@ -93,5 +95,19 @@ for snr in testdata.snrValues:
     acc[snr] = 1.0*cor/(cor+ncor)
 
 
-
+if args.save_csv:
+    # save with 4 decimals
+    fmt = '%1.0f' + preds.shape[1] * ',%1.4f'
+    id_col = np.arange(1, dataset.shape[0] + 1)
+    preds = np.insert(preds, 0, id_col, axis = 1)
+    
+    header = "Index,"
+    for i in range(len(CLASSES) - 1):
+        header += CLASSES[i]+','
+    header += CLASSES[-1]
+    f = open(output_path, 'w')
+    f.write(header)
+    f.close()
+    f = open(output_path,'ab')
+    np.savetxt(f, preds, delimiter=',', fmt = fmt)
 print("Done")

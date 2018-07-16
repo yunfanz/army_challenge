@@ -17,8 +17,13 @@ parser.add_argument('--load_json', type=bool, default=False)
 parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=512)
+parser.add_argument('--ngpu', type=int, default=1)
+parser.add_argument('--noise', type=float, default=-1.)
+parser.add_argument('--crop_to', type=int, default=1024)
+parser.add_argument('--num_models', type=int, default=1)
+parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
-#parser.add_argument('--', type=int, default=13)
+parser.add_argument('--reducelr', type=int, default=8)
 parser.add_argument('--test_file', type=int, default=14)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
@@ -29,6 +34,7 @@ parser.add_argument('--data_format', type=str, default="channels_last",
                     help='an integer for the accumulator')
 parser.add_argument('--sep', type=bool, default=False)
 parser.add_argument('--noise_std', type=float, default=None)
+parser.add_argument('--classifier_name', type=str, default="sub_classifer.h5")
 args = parser.parse_args()
 
 
@@ -42,20 +48,14 @@ mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.data_dir
 model_path = args.train_dir+'sub_classifier4.h5'
+
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
 for i in range(15):
-    if i in [args.val_file, args.test_file]: continue
+    if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
-    
-
-    
-
-
-data_file = BASEDIR + "training_data_chunk_" + str(args.val_file) + ".pkl"
-valdata = LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods])
 
 
 data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
@@ -102,24 +102,14 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,2,1
     x = MaxPooling2D([2,3], strides=2, padding='same')(x)
     for dep in range(num_layers[3]):
         x = inception(x, height=1,fs=[32,32,32,32,32])
-#     x = GlobalAveragePooling1D()(x)
-#     x = Conv2D(filters=64, kernel_size=[1,1], padding='same', activation='relu')(x) # optional dim reduction
 
     x = Dropout(0.5)(x)
     output = Flatten()(x)
     out    = Dense(num_classes, activation='softmax')(output)
     return out
 
-in_shp = (2, 1024)
-input_img = Input(shape=in_shp)
-out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-model = Model(inputs=input_img, outputs=out)
-model.summary()
-
 train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
-val_batches = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
-vsteps = valdata.train_idx.size//train_batch_size
 
 
 generators = []
@@ -132,18 +122,20 @@ tsteps = tsteps//train_batch_size
 
 
 
-def train_batches(noise_std = None):
+def get_train_batches(generators):
     while True:
-        batches_x, batches_y = [], []
+        batches_x, batches_y, batches_snr = [], [], []
 
         for gen in generators:
-            batch_x, batch_y = next(gen)
+            batch_x, batch_y, batch_labels = next(gen)
             batches_x.append(batch_x)
             batches_y.append(batch_y)
+            #print(batch_labels)
+            batches_snr.append(10**((batch_labels[:,1]).astype(np.float)/10.))
             
         batches_x = np.concatenate(batches_x)
         batches_y = np.concatenate(batches_y)
-        
+        batches_snr = np.concatenate(batches_snr)
         idx = np.random.permutation(batches_x.shape[0])
         
         if noise_std:
@@ -152,16 +144,25 @@ def train_batches(noise_std = None):
         
         batches_x = batches_x[idx]
         batches_y = batches_y[idx]
+        batches_snr = batches_snr[idx]
         
         for i in range(len(generators)):
             beg = i * train_batch_size
             end = beg + train_batch_size
-            yield batches_x[beg:end], batches_y[beg:end]
+            bx, by, bs = batches_x[beg:end], batches_y[beg:end], batches_snr[beg:end]
+            if False and np.random.random()>0.5:
+                bx = bx[...,::-1]
+            if args.noise > 0:
+                shp0, shp1, shp2 = bx.shape
+                bx += args.noise * np.random.randn(shp0, shp1, shp2)/bs[:,np.newaxis, np.newaxis]
+            if args.crop_to < 1024:
+                c_start = np.random.randint(low=0, high=1024-args.crop_to)
+                bx = bx[...,c_start:c_start+args.crop_to]
+                assert bx.shape[-1] == args.crop_to
+            yield bx, by
         
 
 train_batches = train_batches(noise_std = args.noise_std)
-
-
 
 
 model = multi_gpu_model(model, gpus=2)
@@ -197,28 +198,102 @@ for snr in testdata.snrValues:
     snrThreshold_lower = snr
     snrThreshold_upper = snr+5
     snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
+
+def get_val_batches(gen):
+    while True:
+        bx, by = next(gen)
+        if args.crop_to < 1024:
+            c_start = np.random.randint(low=0, high=1024-args.crop_to)
+            bx = bx[...,c_start:c_start+args.crop_to]
+            assert bx.shape[-1] == args.crop_to
+        yield bx, by
+
+for m in range(args.num_models):
     
-    test_X_i = testdata.signalData[snr_bounded_test_indicies]
-    test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
-
-    # estimate classes
-    test_Y_i_hat = model.predict(test_X_i)
-    conf = np.zeros([len(classes),len(classes)])
-    confnorm = np.zeros([len(classes),len(classes)])
-    for i in range(0,test_X_i.shape[0]):
-        j = list(test_Y_i[i,:]).index(1)
-        k = int(np.argmax(test_Y_i_hat[i,:]))
-        conf[j,k] = conf[j,k] + 1
-    for i in range(0,len(classes)):
-        confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
-    # plt.figure(figsize=(10,10))
-    # plot_confusion_matrix(confnorm, labels=classes, title="ConvNet Confusion Matrix (SNR=%d)"%(snr))
+    valdata = data[m]
     
-    cor = np.sum(np.diag(conf))
-    ncor = np.sum(conf) - cor
-    print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
-    acc[snr] = 1.0*cor/(cor+ncor)
+    val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
+    vsteps = valdata.train_idx.size//train_batch_size
+
+
+    generators = []
+    tsteps = 0
+    for i, d in enumerate(data):
+        if i == m:
+            continue
+        generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True, yield_snr=True))
+        tsteps += d.train_idx.size
+    tsteps = tsteps//train_batch_size 
+    train_batches = get_train_batches(generators)
+    val_batches = get_val_batches(val_gen)
+
+    in_shp = (2, args.crop_to)
+    input_img = Input(shape=in_shp)
+    out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+    model = Model(inputs=input_img, outputs=out)
+    model_path = args.train_dir+'model{}.h5'.format(m)
+    if args.ngpu > 1:
+        model = multi_gpu_model(model, gpus=args.ngpu)
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
+    filepath = args.train_dir+'checkpoints{}.h5'.format(m)
+
+    try:
+        history = model.fit_generator(train_batches,
+            nb_epoch=number_of_epochs,
+            steps_per_epoch=tsteps,
+            verbose=args.verbose,
+            validation_data=val_batches,
+            validation_steps=vsteps,
+            callbacks = [
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
+              keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.reducelr, min_lr=0.0001),
+              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False),
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=15,verbose=0, mode='auto')
+             ]) 
+    except(StopIteration):
+        pass
+    model.load_weights(filepath)
+    model.save(model_path)  
+    
+    
+    #Print test accuracies
+
+    acc = {}
+    scores = {}
+    snrs = np.arange(-15,15, 5)
+
+    classes = testdata.modTypes
+
+    print("classes ", classes)
+    for snr in testdata.snrValues:
+
+        # extract classes @ SNR
+        snrThreshold_lower = snr
+        snrThreshold_upper = snr+5
+        snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
+
+        test_X_i = testdata.signalData[snr_bounded_test_indicies]
+        test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
+        
+        #sc, ac = model.evaluate(test_X_i, test_Y_i, batch_size=256)
+        # estimate classes
+        test_Y_i_hat = model.predict(test_X_i)
+        conf = np.zeros([len(classes),len(classes)])
+        confnorm = np.zeros([len(classes),len(classes)])
+        for i in range(0,test_X_i.shape[0]):
+            j = list(test_Y_i[i,:]).index(1)
+            k = int(np.argmax(test_Y_i_hat[i,:]))
+            conf[j,k] = conf[j,k] + 1
+        for i in range(0,len(classes)):
+            confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
+        # plt.figure(figsize=(10,10))
+        # plot_confusion_matrix(confnorm, labels=classes, title="ConvNet Confusion Matrix (SNR=%d)"%(snr))
+
+        cor = np.sum(np.diag(conf))
+        ncor = np.sum(conf) - cor
+        print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
+        acc[snr] = 1.0*cor/(cor+ncor)
 
 
 
-print("Done")
+    print("Done model {} out of {}".format(m, args.num_models))

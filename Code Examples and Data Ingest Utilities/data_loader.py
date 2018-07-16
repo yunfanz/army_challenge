@@ -53,7 +53,7 @@ class LoadModRecData:
 
     '''
 
-    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None):
+    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None, load_snrs=None):
         ''' init
 
             .. note::
@@ -68,12 +68,12 @@ class LoadModRecData:
 
         print(TAG + "Loading Data...")
 
-        self.signalData, self.oneHotLabels, self.signalLabels = self.loadData(datafile, load_mods=load_mods)
+        self.signalData, self.oneHotLabels, self.signalLabels = self.loadData(datafile, load_mods=load_mods, load_snrs=load_snrs)
         self.train_idx, self.val_idx, self.test_idx = self.split(trainRatio, validateRatio, testRatio)
 
         print(TAG + "Done.\n")
 
-    def loadData(self, fname, load_mods):
+    def loadData(self, fname, load_mods, load_snrs):
         '''  Load dataset from pickled file '''
         
         
@@ -94,7 +94,10 @@ class LoadModRecData:
             self.modTypes = load_mods
 
         # get all SNR values
-        self.snrValues = np.unique(dataCubeKeyIndices[1])
+        if load_snrs is None:
+            self.snrValues = np.unique(dataCubeKeyIndices[1])
+        else:
+            self.snrValues = load_snrs
 
         # create one-hot vectors for each mod type
         oneHotArrays = np.eye(len(self.modTypes), dtype=int)
@@ -215,7 +218,7 @@ class LoadModRecData:
         # return the batch
         return zip(batch_x, batch_y, batch_y_labels)
 
-    def batch_iter(self, data_indicies, batch_size, num_epochs, use_shuffle=True):
+    def batch_iter(self, data_indicies, batch_size, num_epochs, use_shuffle=True, yield_snr=False):
         '''  provide generator for iteration of the training indicies created during initialization '''
 
         # iteration - one batch_size from data
@@ -248,7 +251,10 @@ class LoadModRecData:
 
                 # return a training batch
                 #yield zip(batch_x, batch_y, batch_y_labels)
-                yield batch_x, batch_y
+                if yield_snr:
+                    yield batch_x, batch_y, batch_y_labels
+                else:
+                    yield batch_x, batch_y
 
     def inspect_signal(self, index, modulation, snr, cdata, time, number_of_samples_in_instance, sample_rate,
                        start_freq, stop_freq, interactive=None):
