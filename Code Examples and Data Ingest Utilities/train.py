@@ -111,30 +111,33 @@ train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
 def get_train_batches(generators):
     while True:
-        batches_x, batches_y = [], []
+        batches_x, batches_y, batches_snr = [], [], []
 
         for gen in generators:
-            batch_x, batch_y = next(gen)
+            batch_x, batch_y, batch_labels = next(gen)
             batches_x.append(batch_x)
             batches_y.append(batch_y)
+            #print(batch_labels)
+            batches_snr.append(10**((batch_labels[:,1]).astype(np.float)/10.))
             
         batches_x = np.concatenate(batches_x)
         batches_y = np.concatenate(batches_y)
-        
+        batches_snr = np.concatenate(batches_snr)
         idx = np.random.permutation(batches_x.shape[0])
         
         batches_x = batches_x[idx]
         batches_y = batches_y[idx]
+        batches_snr = batches_snr[idx]
         
         for i in range(len(generators)):
             beg = i * train_batch_size
             end = beg + train_batch_size
-            bx, by = batches_x[beg:end], batches_y[beg:end]
+            bx, by, bs = batches_x[beg:end], batches_y[beg:end], batches_snr[beg:end]
             if False and np.random.random()>0.5:
                 bx = bx[...,::-1]
             if args.noise > 0:
                 shp0, shp1, shp2 = bx.shape
-                bx += args.noise * np.random.randn(shp0, shp1, shp2)
+                bx += args.noise * np.random.randn(shp0, shp1, shp2)/bs[:,np.newaxis, np.newaxis]
             if args.crop_to < 1024:
                 c_start = np.random.randint(low=0, high=1024-args.crop_to)
                 bx = bx[...,c_start:c_start+args.crop_to]
@@ -163,7 +166,7 @@ for m in range(args.num_models):
     for i, d in enumerate(data):
         if i == m:
             continue
-        generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True))
+        generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True, yield_snr=True))
         tsteps += d.train_idx.size
     tsteps = tsteps//train_batch_size 
     train_batches = get_train_batches(generators)
