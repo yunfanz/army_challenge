@@ -23,7 +23,7 @@ parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
-#parser.add_argument('--', type=int, default=13)
+parser.add_argument('--reducelr', type=int, default=8)
 parser.add_argument('--test_file', type=int, default=14)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
@@ -188,10 +188,9 @@ for m in range(args.num_models):
             validation_steps=vsteps,
             callbacks = [
               keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
-              #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                                  #patience=args.epochs//10, min_lr=0.0001),
+              keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.reducelr, min_lr=0.0001),
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=8,verbose=0, mode='auto')
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=15,verbose=0, mode='auto')
              ]) 
     except(StopIteration):
         pass
