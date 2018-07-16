@@ -28,6 +28,7 @@ parser.add_argument('--data_files', type=int, nargs='+',
 parser.add_argument('--data_format', type=str, default="channels_last",
                     help='an integer for the accumulator')
 parser.add_argument('--sep', type=bool, default=False)
+parser.add_argument('--noise_std', type=float, default=None)
 args = parser.parse_args()
 
 
@@ -40,7 +41,7 @@ all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), np.array([4,5]), np.arra
 mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.data_dir
-model_path = args.train_dir+'sub_classifier1.h5'
+model_path = args.train_dir+'sub_classifier4.h5'
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
@@ -68,7 +69,7 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
     #conv_index += 1
     tower_2 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
     #conv_index += 1
-    tower_2 = Conv2D(filters=fs[3], kernel_size=[height, 8], padding='same', activation='relu')(tower_2)
+    tower_2 = Conv2D(filters=fs[3], kernel_size=[height, 9], padding='same', activation='relu')(tower_2)
     #conv_index += 1
     tower_3 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
     #conv_index += 1
@@ -104,7 +105,7 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,2,1
 #     x = GlobalAveragePooling1D()(x)
 #     x = Conv2D(filters=64, kernel_size=[1,1], padding='same', activation='relu')(x) # optional dim reduction
 
-    x = Dropout(0.45)(x)
+    x = Dropout(0.5)(x)
     output = Flatten()(x)
     out    = Dense(num_classes, activation='softmax')(output)
     return out
@@ -131,7 +132,7 @@ tsteps = tsteps//train_batch_size
 
 
 
-def train_batches():
+def train_batches(noise_std = None):
     while True:
         batches_x, batches_y = [], []
 
@@ -145,6 +146,10 @@ def train_batches():
         
         idx = np.random.permutation(batches_x.shape[0])
         
+        if noise_std:
+            x,y,z = batches_x.shape
+            batches_x += noise_std * np.random.randn(x,y,z)
+        
         batches_x = batches_x[idx]
         batches_y = batches_y[idx]
         
@@ -154,7 +159,7 @@ def train_batches():
             yield batches_x[beg:end], batches_y[beg:end]
         
 
-train_batches = train_batches()
+train_batches = train_batches(noise_std = args.noise_std)
 
 
 
@@ -172,11 +177,11 @@ history = model.fit_generator(train_batches,
     validation_steps=vsteps,
     callbacks = [
           keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
-          keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+          keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.8,
                               patience=args.epochs//10, min_lr=0.0001),
           keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs', histogram_freq=0, batch_size=args.batch_size, write_graph=False),
           keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.epochs//8,verbose=0, mode='auto')
-     ]) 
+     ])
 model.load_weights(filepath)
 model.save(model_path)  
 
