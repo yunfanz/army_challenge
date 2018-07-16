@@ -18,6 +18,7 @@ parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--ngpu', type=int, default=1)
+parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
@@ -131,6 +132,9 @@ def get_train_batches(generators):
             bx, by = batches_x[beg:end], batches_y[beg:end]
             if False and np.random.random()>0.5:
                 bx = bx[...,::-1]
+            if args.noise > 0:
+                shp0, shp1, shp2 = bx.shape
+                bx += args.noise * np.random.randn(shp0, shp1, shp2)
             if args.crop_to < 1024:
                 c_start = np.random.randint(low=0, high=1024-args.crop_to)
                 bx = bx[...,c_start:c_start+args.crop_to]
