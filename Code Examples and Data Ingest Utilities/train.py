@@ -218,7 +218,7 @@ for m in range(args.num_models):
         test_X_i = testdata.signalData[snr_bounded_test_indicies]
         test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
         
-        sc, ac = model.evaluate(test_X_i, test_Y_i, batch_size=256)
+        #sc, ac = model.evaluate(test_X_i, test_Y_i, batch_size=256)
         # estimate classes
         test_Y_i_hat = model.predict(test_X_i)
         conf = np.zeros([len(classes),len(classes)])
@@ -234,7 +234,7 @@ for m in range(args.num_models):
 
         cor = np.sum(np.diag(conf))
         ncor = np.sum(conf) - cor
-        print("SNR", snr, "Loss", sc, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
+        print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
         acc[snr] = 1.0*cor/(cor+ncor)
 
 
