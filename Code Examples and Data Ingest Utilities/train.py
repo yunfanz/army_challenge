@@ -33,7 +33,6 @@ parser.add_argument('--data_files', type=int, nargs='+',
 parser.add_argument('--data_format', type=str, default="channels_last",
                     help='an integer for the accumulator')
 parser.add_argument('--sep', type=bool, default=False)
-parser.add_argument('--noise_std', type=float, default=None)
 parser.add_argument('--classifier_name', type=str, default="sub_classifer.h5")
 args = parser.parse_args()
 
@@ -47,7 +46,7 @@ all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), np.array([4,5]), np.arra
 mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.data_dir
-model_path = args.train_dir+'sub_classifier4.h5'
+model_path = args.train_dir+args.classifier_name
 
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
@@ -108,6 +107,14 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,2,1
     out    = Dense(num_classes, activation='softmax')(output)
     return out
 
+in_shp = (2, 1024)
+input_img = Input(shape=in_shp)
+out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+model = Model(inputs=input_img, outputs=out)
+model.summary()
+
+
+
 train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
 
@@ -138,10 +145,12 @@ def get_train_batches(generators):
         batches_snr = np.concatenate(batches_snr)
         idx = np.random.permutation(batches_x.shape[0])
         
-        if noise_std:
-            x,y,z = batches_x.shape
-            batches_x += noise_std * np.random.randn(x,y,z)
         
+        if args.noise > 0:
+            shp0, shp1, shp2 = batches_x.shape
+            batches_x += args.noise * np.random.randn(shp0, shp1, shp2)/batches_snr[:,np.newaxis, np.newaxis]
+                
+                
         batches_x = batches_x[idx]
         batches_y = batches_y[idx]
         batches_snr = batches_snr[idx]
@@ -152,9 +161,7 @@ def get_train_batches(generators):
             bx, by, bs = batches_x[beg:end], batches_y[beg:end], batches_snr[beg:end]
             if False and np.random.random()>0.5:
                 bx = bx[...,::-1]
-            if args.noise > 0:
-                shp0, shp1, shp2 = bx.shape
-                bx += args.noise * np.random.randn(shp0, shp1, shp2)/bs[:,np.newaxis, np.newaxis]
+            
             if args.crop_to < 1024:
                 c_start = np.random.randint(low=0, high=1024-args.crop_to)
                 bx = bx[...,c_start:c_start+args.crop_to]
@@ -162,42 +169,9 @@ def get_train_batches(generators):
             yield bx, by
         
 
-train_batches = train_batches(noise_std = args.noise_std)
+train_batches = get_train_batches(generators)
 
 
-model = multi_gpu_model(model, gpus=2)
-model.compile(loss='categorical_crossentropy', optimizer='adam')
-filepath = args.train_dir+'checkpoints.h5'
-
-# model.load_weights(filepath)
-history = model.fit_generator(train_batches,
-    nb_epoch=number_of_epochs,
-    steps_per_epoch=tsteps,
-    verbose=2,
-    validation_data=val_batches,
-    validation_steps=vsteps,
-    callbacks = [
-          keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss'    , verbose=0, save_best_only=True, mode='auto'),
-          keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.8,
-                              patience=args.epochs//10, min_lr=0.0001),
-          keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs', histogram_freq=0, batch_size=args.batch_size, write_graph=False),
-          keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.epochs//8,verbose=0, mode='auto')
-     ])
-model.load_weights(filepath)
-model.save(model_path)  
-
-acc = {}
-snrs = np.arange(-15,15, 5)
-
-classes = testdata.modTypes
-
-print("classes ", classes)
-for snr in testdata.snrValues:
-
-    # extract classes @ SNR
-    snrThreshold_lower = snr
-    snrThreshold_upper = snr+5
-    snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
 
 def get_val_batches(gen):
     while True:
@@ -214,6 +188,8 @@ for m in range(args.num_models):
     
     val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
     vsteps = valdata.train_idx.size//train_batch_size
+    
+    val_batches = get_val_batches(val_gen)
 
 
     generators = []
@@ -247,12 +223,13 @@ for m in range(args.num_models):
             callbacks = [
               keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
               keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.reducelr, min_lr=0.0001),
-              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=15,verbose=0, mode='auto')
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=15,verbose=0, mode='auto'),
+
+              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
     except(StopIteration):
         pass
-    model.load_weights(filepath)
+    #model.load_weights(filepath)
     model.save(model_path)  
     
     
