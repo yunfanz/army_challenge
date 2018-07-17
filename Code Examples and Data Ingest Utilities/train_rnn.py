@@ -54,7 +54,7 @@ model_path = args.train_dir+args.classifier_name
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
-for i in range(10):
+for i in range(15):
     if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
