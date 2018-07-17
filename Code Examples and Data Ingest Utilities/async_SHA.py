@@ -54,13 +54,13 @@ class TrainWorker(Process):
                       optimizer=keras.optimizers.Adadelta(),
                       metrics=['accuracy'])
         #print('model compiled')
-        for e in range(epochs):
-            x_train = augment(x_train)
-            model.fit(x_train, y_train,
-                      batch_size=batch_size,
-                      epochs=1,
-                      verbose=0,
-                      validation_data=(x_val, y_val))
+        #for e in range(epochs):
+            #x_train = augment(x_train)
+        model.fit(x_train, y_train,
+                  batch_size=batch_size,
+                  epochs=epochs,
+                  verbose=0,
+                  validation_data=(x_val, y_val))
         score = model.evaluate(self.x_val, self.y_val, verbose=0)
         return score
 
