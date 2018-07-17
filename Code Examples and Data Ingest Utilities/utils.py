@@ -87,7 +87,7 @@ def get_fourier(cdata, window='hann', nperseg=256, noverlap=220):
         cdata = cdata[...,0] + cdata[...,1]*1.j
         cdata = cdata.astype(np.complex64)
     batch_size = cdata.shape[0]
-    print(cdata.shape)
+    #print(cdata.shape)
 #     fold = cdata.squeeze().reshape((batch_size, window, 1024//window))
 #     if with_hamming:
 #         fold *= np.hamming(1024//window)
@@ -101,13 +101,16 @@ def get_fourier(cdata, window='hann', nperseg=256, noverlap=220):
     fts = np.stack([fts.real, fts.imag], axis=-1)
     return fts
 
-def get_welch(cdata, window='hann', nperseg=256, noverlap=220, remove_DC=True):
+def get_welch(cdata, window='hann', nperseg=256, noverlap=220, remove_DC=True, in_format='channels_last'):
     """input must be (batch_size, 1024, 2) real time series"""
     if len(cdata.shape) == 3:
-        cdata = cdata[...,0] + cdata[...,1]*1.j
+        if in_format == 'channels_last':
+            cdata = cdata[...,0] + cdata[...,1]*1.j
+        else:
+            cdata = cdata[:,0,:] + cdata[:,1,:]*1.j
         cdata = cdata.astype(np.complex64)
     batch_size = cdata.shape[0]
-    print(cdata.shape)
+    #print(cdata.shape)
     fts = []
     for i in range(batch_size):
         tdata = cdata[i]
@@ -126,7 +129,7 @@ def get_periodogram(cdata, nfft=512, remove_DC=False):
         cdata = cdata[...,0] + cdata[...,1]*1.j
         cdata = cdata.astype(np.complex64)
     batch_size = cdata.shape[0]
-    print(cdata.shape)
+    #print(cdata.shape)
     fts = []
     for i in range(batch_size):
         tdata = cdata[i]
