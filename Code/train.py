@@ -24,8 +24,9 @@ parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
-parser.add_argument('--lrpatience', type=int, default=12)
-parser.add_argument('--minlr', type=float, default=0.000004)
+parser.add_argument('--lrpatience', type=int, default=10)
+parser.add_argument('--minlr', type=float, default=0.00001)
+parser.add_argument('--noiseclip', type=float, default=1.)
 parser.add_argument('--test_file', type=int, default=14)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
@@ -149,7 +150,9 @@ def get_train_batches(generators):
         
         if args.noise > 0:
             shp0, shp1, shp2 = batches_x.shape
-            batches_x += args.noise * np.random.randn(shp0, shp1, shp2)/batches_snr[:,np.newaxis, np.newaxis]
+            noisestd = np.args.noise/batches_snr[:,np.newaxis, np.newaxis]
+            noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
+            batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
                 
                 
         batches_x = batches_x[idx]
