@@ -85,22 +85,22 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
     print()
     return output
 
-def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[2,2,6,2]):
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[2,2,6,2], features=[2,1,1,1,2]):
 #     num_layers = [2,4,10,4]
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
-    x = Conv2D(filters = 64, kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
+    x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
     x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
     for dep in range(num_layers[0]):
-        x = Conv2D(filters = 192, kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
+        x = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
     for dep in range(num_layers[1]):
-        x = inception(x, height=2, fs=[32,32,32,32,32])
+        x = inception(x, height=2, fs=np.array([32,32,32,32,32])*features[2])
     x = MaxPooling2D([1,3], strides=2, padding='same')(x)
     for dep in range(num_layers[2]):
-        x = inception(x, height=2, fs=[48,96,48,96,96], with_residual=True)
+        x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[3], with_residual=True)
     x = MaxPooling2D([2,3], strides=2, padding='same')(x)
     for dep in range(num_layers[3]):
-        x = inception(x, height=1,fs=np.array([32,32,32,32,32])*1)
+        x = inception(x, height=1,fs=np.array([32,32,32,32,32])*features[4])
 
     x = Dropout(0.5)(x)
     output = Flatten()(x)
