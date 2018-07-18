@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
 import keras
-from keras.layers import Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
+from keras.layers import Average, Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model
 from keras.utils import plot_model, multi_gpu_model
 import argparse
@@ -85,7 +85,12 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
     print()
     return output
 
-def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[2,2,6,2], features=[2,1,1,1,2]):
+def out_tower(x, dr=0.5):
+    x = Dropout(dr)(x)
+    output = Flatten()(x)
+    out    = Dense(num_classes, activation='softmax')(output)
+    return out
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[2,2,4,6,2], features=[1,1,1,1,2,2]):
 #     num_layers = [2,4,10,4]
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
@@ -98,13 +103,14 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[2,2,6,2
     x = MaxPooling2D([1,3], strides=2, padding='same')(x)
     for dep in range(num_layers[2]):
         x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[3], with_residual=True)
-    x = MaxPooling2D([2,3], strides=2, padding='same')(x)
+    out_mid = out_tower(x, dr=0.3)
     for dep in range(num_layers[3]):
-        x = inception(x, height=1,fs=np.array([32,32,32,32,32])*features[4])
-
-    x = Dropout(0.5)(x)
-    output = Flatten()(x)
-    out    = Dense(num_classes, activation='softmax')(output)
+        x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[4], with_residual=True)
+    x = MaxPooling2D([2,3], strides=2, padding='same')(x)
+    for dep in range(num_layers[4]):
+        x = inception(x, height=1,fs=np.array([32,32,32,32,32])*features[5])
+    out_late = out_tower(x, dr=0.6)
+    out = Average()([out_mid, out_late])
     return out
 
 in_shp = (2, 1024)
