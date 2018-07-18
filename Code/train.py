@@ -150,7 +150,7 @@ def get_train_batches(generators):
         
         if args.noise > 0:
             shp0, shp1, shp2 = batches_x.shape
-            noisestd = np.args.noise/batches_snr[:,np.newaxis, np.newaxis]
+            noisestd = args.noise/batches_snr[:,np.newaxis, np.newaxis]
             noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
             batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
                 
