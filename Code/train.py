@@ -1,6 +1,6 @@
 import numpy as np
 from data_loader import *
-
+import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
@@ -18,6 +18,7 @@ parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--ngpu', type=int, default=1)
+parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
@@ -63,25 +64,23 @@ testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod
 
 #global conv_index
 #conv_index=0
-def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False):
+def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False, tw_tower=False):
     tower_1 = Conv2D(filters=fs[0], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
-    #conv_index += 1
     tower_2 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
-    #conv_index += 1
     tower_2 = Conv2D(filters=fs[3], kernel_size=[height, 9], padding='same', activation='relu')(tower_2)
-    #conv_index += 1
     tower_3 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
-    #conv_index += 1
     tower_3 = Conv2D(filters=fs[3], kernel_size=[height, 4], padding='same', activation='relu')(tower_3)
-    #conv_index += 1
-    # tower_5 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
-    # tower_5 = Conv2D(filters=fs[3], kernel_size=[height, 2], padding='same', activation='relu')(tower_5)
+    if tw_tower:
+        tower_5 = Conv2D(filters=fs[2], kernel_size=[height, 1], padding='same', activation='relu')(input_img)
+        tower_5 = Conv2D(filters=fs[3], kernel_size=[height, 12], padding='same', activation='relu')(tower_5)
     tower_4 = MaxPooling2D(3, strides=1, padding='same')(input_img)
     tower_4 = Conv2D(filters=fs[4], kernel_size=1, padding='same', activation='relu')(tower_4)
-    output = keras.layers.concatenate([tower_1, tower_2, tower_3, tower_4], axis = 3)
+    if tw_tower:
+        output = keras.layers.concatenate([tower_1, tower_2, tower_3, tower_4, tower_5], axis = 3)
+    else:
+        output = keras.layers.concatenate([tower_1, tower_2, tower_3, tower_4], axis = 3)
     if with_residual and output.shape==input_img.shape:
         output = output+input_img
-    #print("end inception",conv_index)
     print()
     return output
 
@@ -90,8 +89,9 @@ def out_tower(x, dr=0.5):
     output = Flatten()(x)
     out    = Dense(num_classes, activation='softmax')(output)
     return out
-def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[2,2,4,6,2], features=[1,1,1,1,2,2]):
-#     num_layers = [2,4,10,4]
+
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,6,2], features=[1,1,1,1,1]):
+    
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
     x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
@@ -99,25 +99,19 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[2,2,4,6
         x = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
     for dep in range(num_layers[1]):
-        x = inception(x, height=2, fs=np.array([32,32,32,32,32])*features[2])
+        x = inception(x, height=2, fs=np.array([32,32,32,32,32])*features[2], tw_tower=True)
     x = MaxPooling2D([1,3], strides=2, padding='same')(x)
     for dep in range(num_layers[2]):
         x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[3], with_residual=True)
-    out_mid = out_tower(x, dr=0.3)
-    for dep in range(num_layers[3]):
-        x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[4], with_residual=True)
+    #out_mid = out_tower(x, dr=0.3)
+    #for dep in range(num_layers[3]):
+    #    x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[4], with_residual=True)
     x = MaxPooling2D([2,3], strides=2, padding='same')(x)
-    for dep in range(num_layers[4]):
-        x = inception(x, height=1,fs=np.array([32,32,32,32,32])*features[5])
-    out_late = out_tower(x, dr=0.6)
-    out = Average()([out_mid, out_late])
+    for dep in range(num_layers[3]):
+        x = inception(x, height=1,fs=np.array([32,32,32,32,32])*features[4])
+    out = out_tower(x, dr=0.5)
+    #out = Average()([out_mid, out_late])
     return out
-
-in_shp = (2, 1024)
-input_img = Input(shape=in_shp)
-out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-model = Model(inputs=input_img, outputs=out)
-model.summary()
 
 
 
@@ -188,7 +182,7 @@ def get_val_batches(gen):
             assert bx.shape[-1] == args.crop_to
         yield bx, by
 
-for m in range(args.num_models):
+for m in range(args.m0, args.m0+args.num_models):
     
     valdata = data[m]
     
@@ -215,7 +209,15 @@ for m in range(args.num_models):
     model = Model(inputs=input_img, outputs=out)
     model_path = args.train_dir+'model{}.h5'.format(m)
     if args.ngpu > 1:
+        with tf.device("/cpu:0"):
+            input_img = Input(shape=in_shp)
+            out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+            model = Model(inputs=input_img, outputs=out)
         model = multi_gpu_model(model, gpus=args.ngpu)
+    else:
+        input_img = Input(shape=in_shp)
+        out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+        model = Model(inputs=input_img, outputs=out)
     model.compile(loss='categorical_crossentropy', optimizer='adam')
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
 
