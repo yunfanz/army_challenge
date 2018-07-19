@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
 import keras
-from keras.layers import Average, Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
+import keras.backend as K
+from keras.layers import Activation, Lambda, Average, Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model
 from keras.utils import plot_model, multi_gpu_model
 import argparse
