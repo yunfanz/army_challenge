@@ -68,7 +68,7 @@ class LoadModRecData:
 
         print(TAG + "Loading Data...")
 
-        self.signalData, self.oneHotLabels, self.signalLabels = self.loadData(datafile, load_mods=load_mods, load_snrs=load_snrs)
+        self.signalData, self.oneHotLabels, self.signalLabels, self.snrLabels = self.loadData(datafile, load_mods=load_mods, load_snrs=load_snrs)
         self.train_idx, self.val_idx, self.test_idx = self.split(trainRatio, validateRatio, testRatio)
 
         print(TAG + "Done.\n")
@@ -101,6 +101,7 @@ class LoadModRecData:
 
         # create one-hot vectors for each mod type
         oneHotArrays = np.eye(len(self.modTypes), dtype=int)
+        snrOneHotArrays = np.eye(len(self.snrValues), dtype=int)
 
         # Count Number of examples
         print(TAG + "Counting Number of Examples in Dataset...")
@@ -115,23 +116,26 @@ class LoadModRecData:
         signalData = [None] * number_of_examples
         oneHotLabels = [None] * number_of_examples
         signalLabels = [None] * number_of_examples
+        snrLabels = [None] * number_of_examples
 
         # for each mod type ... for each snr value ... add to signalData, signalLabels, and create one-Hot vectors
         example_index = 0
         one_hot_index = 0
         self.instance_shape = None
-
+        snr_to_one_hot_index = {}
+        for i in range(len(self.snrValues)):
+            snr_to_one_hot_index[self.snrValues[i]] = i
+            
         for modType in self.modTypes:
             print(TAG + "[Modulation Dataset] Adding Collects for: " + str(modType))
             for snrValue in self.snrValues:
-
                 # get data for key,value
                 collect = self.dataCube[modType, snrValue]
-
                 for instance in collect:
                     signalData[example_index] = instance
                     signalLabels[example_index] = (modType, snrValue)
                     oneHotLabels[example_index] = oneHotArrays[one_hot_index]
+                    snrLabels[example_index] = snrOneHotArrays[snr_to_one_hot_index[snrValue]]              
                     example_index += 1
 
                     if self.instance_shape is None:
@@ -144,6 +148,7 @@ class LoadModRecData:
         signalData = np.asarray(signalData)
         oneHotLabels = np.asarray(oneHotLabels)
         signalLabels = np.asarray(signalLabels)
+        snrLabels = np.asarray(snrLabels)
 
         # Shuffle data
         print(TAG + "Shuffling Data...")
@@ -153,9 +158,10 @@ class LoadModRecData:
         shuffle_indices = np.random.permutation(np.arange(len(signalLabels)))
         signalData_shuffled = signalData[shuffle_indices]
         signalLabels_shuffled = signalLabels[shuffle_indices]
+        snrLabels_shuffled = snrLabels[shuffle_indices]
         oneHotLabels_shuffled = oneHotLabels[shuffle_indices]
 
-        return signalData_shuffled, oneHotLabels_shuffled, signalLabels_shuffled
+        return signalData_shuffled, oneHotLabels_shuffled, signalLabels_shuffled, snrLabels_shuffled
 
     def split(self, trainRatio, validateRatio, testRatio):
         '''  split dataset into train, validation, and test '''
@@ -218,7 +224,7 @@ class LoadModRecData:
         # return the batch
         return zip(batch_x, batch_y, batch_y_labels)
 
-    def batch_iter(self, data_indicies, batch_size, num_epochs, use_shuffle=True, yield_snr=False):
+    def batch_iter(self, data_indicies, batch_size, num_epochs, use_shuffle=True, yield_snr=False, train_snr=False):
         '''  provide generator for iteration of the training indicies created during initialization '''
 
         # iteration - one batch_size from data
@@ -248,9 +254,12 @@ class LoadModRecData:
                 batch_x = self.signalData[indices_of_instances_in_batch]
                 batch_y = self.oneHotLabels[indices_of_instances_in_batch]
                 batch_y_labels = self.signalLabels[indices_of_instances_in_batch]
+                batch_snr_one_hot = self.snrLabels[indices_of_instances_in_batch]
 
                 # return a training batch
                 #yield zip(batch_x, batch_y, batch_y_labels)
+                if train_snr:
+                    batch_y = batch_snr_one_hot
                 if yield_snr:
                     yield batch_x, batch_y, batch_y_labels
                 else:
