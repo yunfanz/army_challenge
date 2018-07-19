@@ -93,6 +93,7 @@ def out_tower(x, dr=0.5, reg=-1):
     output = Flatten()(x)
     logits    = Dense(num_classes)(output)
     if reg > 0:
+        #logits = reg * Activation('tanh')(logits)
         logits = Lambda(lambda x: reg*K.tanh(logits))(logits)
     out = Activation('softmax')(logits)
     return out
@@ -238,15 +239,15 @@ for m in range(args.m0, args.m0+args.num_models):
             validation_data=val_batches,
             validation_steps=vsteps,
             callbacks = [
-              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=True, save_best_only=True, mode='auto'),
               keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
               keras.callbacks.EarlyStopping(monitor='val_loss', patience=20,verbose=0, mode='auto'),
 
-              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
+              #keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
     except(StopIteration):
         pass
-    #model.load_weights(filepath)
+    model.load_weights(filepath)
     model.save(model_path)  
     
     
