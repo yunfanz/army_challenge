@@ -25,7 +25,7 @@ parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
 parser.add_argument('--lrpatience', type=int, default=10)
-parser.add_argument('--minlr', type=float, default=0.00001)
+parser.add_argument('--minlr', type=float, default=0.0001)
 parser.add_argument('--noiseclip', type=float, default=1.)
 parser.add_argument('--test_file', type=int, default=14)
 parser.add_argument('--mod_group', type=int, default=0)
@@ -92,7 +92,7 @@ def out_tower(x, dr=0.5):
     out    = Dense(num_classes, activation='softmax')(output)
     return out
 
-def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,6,2], features=[1,1,1,1,1]):
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,4,2], features=[1,1,1,1,2]):
     
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
