@@ -61,6 +61,13 @@ snrs = np.arange(-15,15, 5)
 
 classes = testdata.modTypes
 
+def get_logloss(test_Y_i_hat, test_Y_i, EPS):
+    test_Y_i_hat = np.where(test_Y_i_hat>EPS, test_Y_i_hat, EPS)
+    test_Y_i_hat = np.where(test_Y_i_hat<1-EPS, test_Y_i_hat, 1-EPS)
+    test_Y_i_hat /= np.sum(test_Y_i_hat, axis=1, keepdims=True)
+    logloss = - np.sum(test_Y_i*np.log(test_Y_i_hat))/test_Y_i.shape[0]
+    return logloss
+
 print("classes ", classes)
 for snr in testdata.snrValues:
 
@@ -90,16 +97,15 @@ for snr in testdata.snrValues:
             sub_hat = sub_Y_i_hat[i]
             test_Y_i_hat[i,mods] = sub_sum * sub_hat
             k = int(np.argmax(test_Y_i_hat[i,:]))
-        elif k in AMmods:
+        elif k in AMmods and False:
             sub_sum = np.sum(test_Y_i_hat[i,AMmods])
             sub_hat = 0.5*np.ones_like(test_Y_i_hat[i,AMmods])
             test_Y_i_hat[i,AMmods] = sub_sum * sub_hat
             k = int(np.argmax(test_Y_i_hat[i,:]))
         conf[j,k] = conf[j,k] + 1
-    test_Y_i_hat = np.where(test_Y_i_hat>EPS, test_Y_i_hat, EPS)
-    test_Y_i_hat = np.where(test_Y_i_hat<1-EPS, test_Y_i_hat, 1-EPS)
-    test_Y_i_hat /= np.sum(test_Y_i_hat, axis=1, keepdims=True)
-    logloss = - np.sum(test_Y_i*np.log(test_Y_i_hat))/test_Y_i.shape[0]
+    for eps in [EPS]:
+        logloss = get_logloss(test_Y_i_hat.copy(), test_Y_i, eps)
+        print(eps, logloss)
     for i in range(0,len(classes)):
         confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
     plt.figure(figsize=(10,10))

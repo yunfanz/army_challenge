@@ -20,6 +20,7 @@ parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--noise', type=float, default=-1.)
+parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
@@ -86,10 +87,13 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False, t
     print()
     return output
 
-def out_tower(x, dr=0.5):
+def out_tower(x, dr=0.5, reg=-1):
     x = Dropout(dr)(x)
     output = Flatten()(x)
-    out    = Dense(num_classes, activation='softmax')(output)
+    logits    = Dense(num_classes)(output)
+    if reg > 0:
+        logits = Lambda(lambda x: reg*K.tanh(logits))(logits)
+    out = Activation('softmax')(logits)
     return out
 
 def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,4,2], features=[1,1,1,1,2]):
@@ -111,7 +115,7 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,4,2
     x = MaxPooling2D([2,3], strides=2, padding='same')(x)
     for dep in range(num_layers[3]):
         x = inception(x, height=1,fs=np.array([32,32,32,32,32])*features[4])
-    out = out_tower(x, dr=0.5)
+    out = out_tower(x, dr=0.5, reg=args.confireg)
     #out = Average()([out_mid, out_late])
     return out
 
