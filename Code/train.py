@@ -62,7 +62,7 @@ for i in range(15):
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
 
-testdata = None:
+testdata = None
 if args.test_file > 0:
     data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
     testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
