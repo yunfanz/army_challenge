@@ -18,6 +18,7 @@ parser.add_argument('--load_json', type=bool, default=False)
 parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=128)
+parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--noise', type=float, default=0.4)
 parser.add_argument('--crop_to', type=int, default=1024)
@@ -26,7 +27,7 @@ parser.add_argument('--noverlap', type=int, default=256)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
-parser.add_argument('--reducelr', type=int, default=8)
+parser.add_argument('--lrpatience', type=int, default=8)
 parser.add_argument('--test_file', type=int, default=14)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
@@ -59,9 +60,10 @@ for i in range(15):
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
 
-
-data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
-testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
+testdata = None
+if args.test_file > 0:
+    data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
+    testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
 
 
 
@@ -140,7 +142,7 @@ def get_val_batches(gen):
                            noverlap=args.noverlap, remove_DC=False, in_format='channels_first')
         yield bx, by
 
-for m in range(args.num_models):
+for m in range(args.m0, args.m0+args.num_models):
     
     valdata = data[m]
     
@@ -188,19 +190,19 @@ for m in range(args.num_models):
             validation_steps=vsteps,
             callbacks = [
               keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
-              #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.reducelr, min_lr=0.0001),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=5,verbose=0, mode='auto'),
+              keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=0.0001),
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=10,verbose=0, mode='auto'),
 
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
     except(StopIteration):
         pass
-    #model.load_weights(filepath)
+    model.load_weights(filepath)
     model.save(model_path)  
     
     
     #Print test accuracies
-
+    if args.test_file < 0: continue
     acc = {}
     scores = {}
     snrs = np.arange(-15,15, 5)
