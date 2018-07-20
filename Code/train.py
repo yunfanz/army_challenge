@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
 import keras
-from keras.layers import Average, Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
+import keras.backend as K
+from keras.layers import Activation, Lambda, Average, Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model
 from keras.utils import plot_model, multi_gpu_model
 import argparse
@@ -25,10 +26,11 @@ parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
-parser.add_argument('--lrpatience', type=int, default=10)
+parser.add_argument('--lrpatience', type=int, default=8)
+parser.add_argument('--stoppatience', type=int, default=10)
 parser.add_argument('--minlr', type=float, default=0.0001)
-parser.add_argument('--noiseclip', type=float, default=1.)
-parser.add_argument('--test_file', type=int, default=14)
+parser.add_argument('--noiseclip', type=float, default=100.)
+parser.add_argument('--test_file', type=int, default=-1)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
                     help='an integer for the accumulator')
@@ -60,9 +62,10 @@ for i in range(15):
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
 
-
-data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
-testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
+testdata = None:
+if args.test_file > 0:
+    data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
+    testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
 
 
 #global conv_index
@@ -92,11 +95,12 @@ def out_tower(x, dr=0.5, reg=-1):
     output = Flatten()(x)
     logits    = Dense(num_classes)(output)
     if reg > 0:
+        #logits = reg * Activation('tanh')(logits)
         logits = Lambda(lambda x: reg*K.tanh(logits))(logits)
     out = Activation('softmax')(logits)
     return out
 
-def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,4,2], features=[1,1,1,1,2]):
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
     
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
@@ -237,18 +241,18 @@ for m in range(args.m0, args.m0+args.num_models):
             validation_data=val_batches,
             validation_steps=vsteps,
             callbacks = [
-              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
-              keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=20,verbose=0, mode='auto'),
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=True, save_best_only=True, mode='auto'),
+             # keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.stoppatience,verbose=0, mode='auto'),
 
-              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
+              #keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
     except(StopIteration):
         pass
-    #model.load_weights(filepath)
+    model.load_weights(filepath)
     model.save(model_path)  
     
-    
+    if args.test_file < 0: continue 
     #Print test accuracies
 
     acc = {}
