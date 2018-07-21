@@ -137,8 +137,8 @@ else:
             sub_sum = np.sum(preds[i,mods])
             sub_hat = subpreds[i]
             preds[i,mods] = sub_sum * sub_hat
-    # save with 4 decimals
-    fmt = '%1.0f' + preds.shape[1] * ',%1.4f'
+    # save with 15 decimals
+    fmt = '%1.0f' + preds.shape[1] * ',%1.15f'
     id_col = np.arange(1, testdata.shape[0] + 1)
     preds = np.insert(preds, 0, id_col, axis = 1)
     
