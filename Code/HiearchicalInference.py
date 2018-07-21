@@ -14,13 +14,9 @@ parser = argparse.ArgumentParser(description='Process')
 parser.add_argument('--train_dir', type=str, default='./log/model_9/',
                     help='an integer for the accumulator')
 parser.add_argument('--all_snr', type=bool, default=False)
-parser.add_argument('--load_weights', type=bool, default=False)
-parser.add_argument('--train', type=bool, default=False)
 parser.add_argument('--model', type=str, default=None,
                     help='an integer for the accumulator')
 parser.add_argument('--submodel', type=str, default=None,
-                    help='an integer for the accumulator')
-parser.add_argument('--epochs', type=int, default=10,
                     help='an integer for the accumulator')
 parser.add_argument('--num_classes', type=int, default=24,
                     help='an integer for the accumulator')
@@ -41,8 +37,8 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
 
 mods = np.array([1,9,10,11,12,13])
 AMmods = np.array([4,5])
-BASEDIR = '/datax/yzhang/models/'
-DATABASE = '/datax/yzhang/training_data/'
+BASEDIR = args.train_dir
+DATABASE = args.data_dir
 if args.model is None:
     m_path = BASEDIR+'morad_classifier1.h5'
 else:
@@ -66,7 +62,9 @@ else:
 model = load_model(m_path)
 submodel = load_model(s_path)
 
-def get_logloss(test_Y_i_hat, test_Y_i, EPS):
+def get_logloss(test_Y_i_hat, test_Y_i, EPS, round_to=None):
+    if round_to is not None:
+        test_Y_i_hat = np.around(test_Y_i_hat, decimals=round_to)
     test_Y_i_hat = np.where(test_Y_i_hat>EPS, test_Y_i_hat, EPS)
     test_Y_i_hat = np.where(test_Y_i_hat<1-EPS, test_Y_i_hat, 1-EPS)
     test_Y_i_hat /= np.sum(test_Y_i_hat, axis=1, keepdims=True)
@@ -139,8 +137,8 @@ else:
             sub_sum = np.sum(preds[i,mods])
             sub_hat = subpreds[i]
             preds[i,mods] = sub_sum * sub_hat
-    # save with 4 decimals
-    fmt = '%1.0f' + preds.shape[1] * ',%1.4f'
+    # save with 15 decimals
+    fmt = '%1.0f' + preds.shape[1] * ',%1.15f'
     id_col = np.arange(1, testdata.shape[0] + 1)
     preds = np.insert(preds, 0, id_col, axis = 1)
     
@@ -149,7 +147,7 @@ else:
         header += CLASSES[i]+','
     header += CLASSES[-1]
     f = open(output_path, 'w')
-    f.write(header)
+    f.write(header+'\n')
     f.close()
     f = open(output_path,'ab')
     np.savetxt(f, preds, delimiter=',', fmt = fmt)
