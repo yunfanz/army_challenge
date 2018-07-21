@@ -147,7 +147,7 @@ else:
         header += CLASSES[i]+','
     header += CLASSES[-1]
     f = open(output_path, 'w')
-    f.write(header)
+    f.write(header+'\n')
     f.close()
     f = open(output_path,'ab')
     np.savetxt(f, preds, delimiter=',', fmt = fmt)
