@@ -44,7 +44,7 @@ if args.model is None:
 else:
     m_path = args.model
 if args.submodel is None:
-    s_path = BASEDIR+'sub_classifier1.h5'
+    s_path = None#BASEDIR+'sub_classifier1.h5'
 else:
     s_path = args.submodel
 output_path = BASEDIR+"TestSet1Predictions.csv"
@@ -60,7 +60,7 @@ else:
     testdata = pickle.load(f, encoding='latin1')
     testdata = np.stack([testdata[i] for i in range(1, len(testdata.keys())+1)], axis=0)
 model = load_model(m_path)
-submodel = load_model(s_path)
+submodel = load_model(s_path) if s_path is not None else None
 
 def get_logloss(test_Y_i_hat, test_Y_i, EPS, round_to=None):
     if round_to is not None:
@@ -100,7 +100,7 @@ if args.mode == 'test':
         for i in range(0,test_X_i.shape[0]):
             j = list(test_Y_i[i,:]).index(1)
             k = int(np.argmax(test_Y_i_hat[i,:]))
-            if k in mods:
+            if submodel is not None and k in mods:
                 sub_sum = np.sum(test_Y_i_hat[i,mods])
                 sub_hat = sub_Y_i_hat[i]
                 test_Y_i_hat[i,mods] = sub_sum * sub_hat
