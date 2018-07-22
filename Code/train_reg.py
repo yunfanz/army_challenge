@@ -96,7 +96,7 @@ def out_tower(x, dr=0.5, reg=-1):
     logits    = Dense(num_classes)(output)
     if reg > 0:
         #logits = reg * Activation('tanh')(logits)
-        logits = Lambda(lambda x: reg*K.tanh(logits))(logits)
+        logits = Lambda(lambda x: reg*K.tanh(x))(logits)
     out = Activation('softmax')(logits)
     return out
 
@@ -241,7 +241,7 @@ for m in range(args.m0, args.m0+args.num_models):
             validation_data=val_batches,
             validation_steps=vsteps,
             callbacks = [
-              #keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=True, save_best_only=True, mode='auto'),
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
               #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
               keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.stoppatience,verbose=0, mode='auto'),
 
@@ -249,7 +249,7 @@ for m in range(args.m0, args.m0+args.num_models):
              ]) 
     except(StopIteration):
         pass
-    #model.load_weights(filepath)
+    model.load_weights(filepath)
     model.save(model_path)  
     
     if args.test_file < 0: continue 
