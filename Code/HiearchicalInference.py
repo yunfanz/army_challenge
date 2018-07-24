@@ -8,12 +8,14 @@ import pickle
 import keras
 from keras.layers import Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model, load_model
+from multiprocessing import Manager, Process, Queue, Pool
 import argparse
 
 parser = argparse.ArgumentParser(description='Process')
 parser.add_argument('--train_dir', type=str, default='./log/model_9/',
                     help='an integer for the accumulator')
 parser.add_argument('--all_snr', type=bool, default=False)
+parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--test', type=int, default=1)
 parser.add_argument('--eps', type=float, default=1.e-15)
 parser.add_argument('--model', type=str, default=None,
@@ -69,12 +71,34 @@ else:
     testdata = np.stack([testdata[i] for i in range(1, len(testdata.keys())+1)], axis=0)
 #model = load_model(m_path)
 #submodel = load_model(s_path) if s_path is not None else None
+def _init(queue):
+    global idx
+    idx = queue.get()
+
+def _get_prediction(path, test_X):
+    global idx
+    print(idx, "Model: ", path)
+    with tf.device('/gpu:{}'.format(idx)):
+        model = load_model(path)
+        pred = model.predict(test_X)
+    return pred
+
 def ens_predictions(paths, test_X):
-    preds = []
-    for mp in paths:
-        print("Model: "+mp)
-        model = load_model(mp)
-        preds.append(model.predict(test_X))
+    if args.ngpu>1:
+        ids = range(min(len(m_path), args.ngpu))
+        manager = Manager()
+        idQueue = manager.Queue()
+        for i in ids:
+            idQueue.put(i)
+        p = Pool(args.ngpu, _init, (idQueue,))
+        preds = p.map(_get_predictions, paths)
+    else:
+        preds = []
+        for mp in paths:
+            print("Model: "+mp)
+            model = load_model(mp)
+            preds.append(model.predict(test_X))
+        
     preds = np.stack(preds, axis=0)
     preds = np.mean(preds, axis=0)
     return preds
