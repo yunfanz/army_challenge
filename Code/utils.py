@@ -1,7 +1,21 @@
 import matplotlib.pyplot as plt
 from data_loader import *
 from scipy.signal import *
+import os,fnmatch
 import numpy as np
+
+def find_files(directory, pattern='*.h5', sortby="auto"):
+    '''Recursively finds all files matching the pattern.'''
+    files = []
+    for root, dirnames, filenames in os.walk(directory):
+        for filename in fnmatch.filter(filenames, pattern):
+            files.append(os.path.join(root, filename))
+
+    if sortby == 'auto':
+        files = np.sort(files)
+    elif sortby == 'shuffle':
+        np.random.shuffle(files)
+    return files
 
 def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues, labels=[]):
     plt.imshow(cm, interpolation='nearest', cmap=cmap)

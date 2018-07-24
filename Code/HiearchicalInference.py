@@ -14,6 +14,7 @@ parser = argparse.ArgumentParser(description='Process')
 parser.add_argument('--train_dir', type=str, default='./log/model_9/',
                     help='an integer for the accumulator')
 parser.add_argument('--all_snr', type=bool, default=False)
+parser.add_argument('--test', type=int, default=1)
 parser.add_argument('--eps', type=float, default=1.e-15)
 parser.add_argument('--model', type=str, default=None,
                     help='an integer for the accumulator')
@@ -41,14 +42,20 @@ AMmods = np.array([4,5])
 BASEDIR = args.train_dir
 DATABASE = args.data_dir
 if args.model is None:
-    m_path = BASEDIR+'morad_classifier1.h5'
+    m_path = [BASEDIR+'morad_classifier1.h5']
+elif os.path.isdir(args.model):
+    m_path = find_files(args.model, pattern="model*.h5")
+    print(m_path)
 else:
-    m_path = args.model
+    m_path = [args.model]
 if args.submodel is None:
-    s_path = None#BASEDIR+'sub_classifier1.h5'
+    s_path = None
+elif os.path.isdir(args.submodel):
+    s_path = find_files(args.submodel, pattern="model*.h5")
+    print(s_path)
 else:
-    s_path = args.submodel
-output_path = BASEDIR+"TestSet1Predictions.csv"
+    s_path = [args.submodel]
+output_path = BASEDIR+"TestSet{}Predictions.csv".format(args.test)
 
 if args.mode == 'test':
     if args.data_file is None:
@@ -60,8 +67,17 @@ else:
     f = open(args.data_file, 'rb')
     testdata = pickle.load(f, encoding='latin1')
     testdata = np.stack([testdata[i] for i in range(1, len(testdata.keys())+1)], axis=0)
-model = load_model(m_path)
-submodel = load_model(s_path) if s_path is not None else None
+#model = load_model(m_path)
+#submodel = load_model(s_path) if s_path is not None else None
+def ens_predictions(paths, test_X):
+    preds = []
+    for mp in paths:
+        print("Model: "+mp)
+        model = load_model(mp)
+        preds.append(model.predict(test_X))
+    preds = np.stack(preds, axis=0)
+    preds = np.mean(preds, axis=0)
+    return preds
 
 def get_logloss(test_Y_i_hat, test_Y_i, EPS, round_to=None):
     if round_to is not None:
@@ -92,8 +108,8 @@ if args.mode == 'test':
         test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
 
         # estimate classes
-        test_Y_i_hat = model.predict(test_X_i) # shape (batch, nmods)
-        sub_Y_i_hat = submodel.predict(test_X_i)
+        test_Y_i_hat = ens_predictions(m_path, test_X_i)#model.predict(test_X_i) # shape (batch, nmods)
+        sub_Y_i_hat = ens_predictions(s_path, test_X_i)#submodel.predict(test_X_i)
         conf = np.zeros([len(classes),len(classes)])
         confnorm = np.zeros([len(classes),len(classes)])
 
@@ -101,7 +117,7 @@ if args.mode == 'test':
         for i in range(0,test_X_i.shape[0]):
             j = list(test_Y_i[i,:]).index(1)
             k = int(np.argmax(test_Y_i_hat[i,:]))
-            if submodel is not None and k in mods:
+            if s_path is not None and k in mods:
                 sub_sum = np.sum(test_Y_i_hat[i,mods])
                 sub_hat = sub_Y_i_hat[i]
                 test_Y_i_hat[i,mods] = sub_sum * sub_hat
@@ -130,11 +146,11 @@ if args.mode == 'test':
 
 
 else:
-    preds = model.predict(testdata) 
-    subpreds = submodel.predict(testdata)
+    preds = ens_predictions(m_path,testdata) 
+    subpreds = ens_predictions(s_path,testdata) if s_path is not None else None
     for i in range(0,preds.shape[0]):
         k = int(np.argmax(preds[i,:]))
-        if k in mods:
+        if s_path is not None and k in mods:
             sub_sum = np.sum(preds[i,mods])
             sub_hat = subpreds[i]
             preds[i,mods] = sub_sum * sub_hat
