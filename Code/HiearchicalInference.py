@@ -6,9 +6,11 @@ import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
 import pickle
 import keras
+import tensorflow as tf
 from keras.layers import Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model, load_model
 from multiprocessing import Manager, Process, Queue, Pool
+from functools import partial
 import argparse
 
 parser = argparse.ArgumentParser(description='Process')
@@ -91,7 +93,7 @@ def ens_predictions(paths, test_X):
         for i in ids:
             idQueue.put(i)
         p = Pool(args.ngpu, _init, (idQueue,))
-        preds = p.map(_get_predictions, paths)
+        preds = p.map(partial(_get_prediction, test_X=test_X), paths)
     else:
         preds = []
         for mp in paths:
