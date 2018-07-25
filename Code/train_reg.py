@@ -157,6 +157,8 @@ def get_train_batches(generators):
         batches_snr = np.concatenate(batches_snr)
         idx = np.random.permutation(batches_x.shape[0])
         
+        if args.resample is not None and np.random.random()>0.8:
+            batches_x = resample(batches_x, f=args.resample)
         
         if args.noise > 0:
             shp0, shp1, shp2 = batches_x.shape
@@ -164,8 +166,6 @@ def get_train_batches(generators):
             noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
             batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
                 
-        if args.resample is not None and np.random.random()>0.8:
-            batches_x = resample(batches_x, f=args.resample)
                
         batches_x = batches_x[idx]
         batches_y = batches_y[idx]
@@ -198,6 +198,11 @@ def get_val_batches(gen):
             assert bx.shape[-1] == args.crop_to
         if args.resample is not None and np.random.random()>0.8:
             bx = resample(bx, f=args.resample)
+            if args.noise > 0:
+                shp0, shp1, shp2 = bx.shape
+                noisestd = args.noise
+                noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
+                bx += noisestd * np.random.randn(shp0, shp1, shp2)
         yield bx, by
 
 for m in range(args.m0, args.m0+args.num_models):
