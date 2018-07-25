@@ -1,5 +1,6 @@
 import numpy as np
 from data_loader import *
+from utils import *
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -19,6 +20,7 @@ parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=300)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--ngpu', type=int, default=1)
+parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=5.)
@@ -162,7 +164,9 @@ def get_train_batches(generators):
             noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
             batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
                 
-                
+        if args.resample is not None and np.random.random()>0.8:
+            batches_x = resample(batches_x, f=args.resample)
+               
         batches_x = batches_x[idx]
         batches_y = batches_y[idx]
         batches_snr = batches_snr[idx]
@@ -192,6 +196,8 @@ def get_val_batches(gen):
             c_start = np.random.randint(low=0, high=1024-args.crop_to)
             bx = bx[...,c_start:c_start+args.crop_to]
             assert bx.shape[-1] == args.crop_to
+        if args.resample is not None and np.random.random()>0.8:
+            bx = resample(bx, f=args.resample)
         yield bx, by
 
 for m in range(args.m0, args.m0+args.num_models):
