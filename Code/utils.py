@@ -3,6 +3,22 @@ from data_loader import *
 from scipy.signal import *
 import os,fnmatch
 import numpy as np
+from scipy import interpolate
+
+def resample(bx, f=24):
+    """assumes channel first"""
+    N = 1024//f
+    c_start = np.random.randint(low=0, high=1024-N)
+    resampled = np.zeros_like(bx)
+    bx = bx[...,c_start:c_start+N]
+    x = np.linspace(0, 1024, N)
+    for i, BX in enumerate(bx):
+        #print(x.shape, BX.shape)
+        fI = interpolate.interp1d(x, BX[0])
+        fQ = interpolate.interp1d(x, BX[1])
+        resampled[i,0] = fI(np.arange(1024))
+        resampled[i,1] = fQ(np.arange(1024))
+    return resampled
 
 def find_files(directory, pattern='*.h5', sortby="auto"):
     '''Recursively finds all files matching the pattern.'''
