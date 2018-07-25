@@ -5,13 +5,15 @@ import os,fnmatch
 import numpy as np
 from scipy import interpolate
 
-def batch_fft(batches_x):
+def batch_fft(batches_x, norm=True):
     shape0 = batches_x.shape
     batches_x = batches_x[:,0,:] + batches_x[:,1,:]*1.j
     assert len(batches_x.shape) == 2
     batches_x = np.fft.fftshift(np.fft.fft(batches_x), axes=[-1]).astype(np.float32)
     batches_x = np.stack([batches_x.real, batches_x.imag], axis=1)
     assert batches_x.shape == shape0
+    if norm:
+        batches_x /= np.mean(np.abs(batches_x))
     return batches_x
 
 def resample(bx, f=24):

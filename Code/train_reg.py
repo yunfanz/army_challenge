@@ -106,8 +106,9 @@ def out_tower(x, dr=0.5, reg=-1):
 def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
     
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
-    x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
-    x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
+    #x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
+    x = Conv2D(filters=64*features[0], kernel_size=[2,3], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
+    #x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
     for dep in range(num_layers[0]):
         x = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
@@ -126,7 +127,38 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1
     #out = Average()([out_mid, out_late])
     return out
 
+def googleNet_n(x,xft=None, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
 
+    x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
+    x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
+    x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
+    for dep in range(num_layers[0]):
+        x = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
+    x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
+
+    if xft is not None:
+        xft = Reshape(in_shp + (1,), input_shape=in_shp)(xft) 
+        xft = Conv2D(filters=64*features[0], kernel_size=[2,4], strides=[2,2], data_format=data_format, padding='same', activation='relu')(xft)
+        xft = MaxPooling2D([1, 3], strides=[1,2], padding='same')(xft)
+        for dep in range(num_layers[0]):
+            xft = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(xft)
+        xft = MaxPooling2D([1,3], strides=[1,2], padding='same')(xft)
+        x = keras.layers.concatenate([x, xft], axis = 3)
+
+    for dep in range(num_layers[1]):
+        x = inception(x, height=2, fs=np.array([32,32,32,32,32])*features[2], tw_tower=True)
+    x = MaxPooling2D([1,3], strides=2, padding='same')(x)
+    for dep in range(num_layers[2]):
+        x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[3], with_residual=True)
+    #out_mid = out_tower(x, dr=0.3)
+    #for dep in range(num_layers[3]):
+    #    x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[4], with_residual=True)
+    x = MaxPooling2D([2,3], strides=2, padding='same')(x)
+    for dep in range(num_layers[3]):
+        x = inception(x, height=1,fs=np.array([32,32,32,32,32])*features[4])
+    out = out_tower(x, dr=0.5, reg=args.confireg)
+    #out = Average()([out_mid, out_late])
+    return out
 
 train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
@@ -264,7 +296,7 @@ for m in range(args.m0, args.m0+args.num_models):
               #keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
     except(StopIteration):
-        pass
+        print('Finished training')
     model.load_weights(filepath)
     model.save(model_path)  
     

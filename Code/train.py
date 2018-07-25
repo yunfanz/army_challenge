@@ -7,6 +7,7 @@ import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
 import keras
 import keras.backend as K
+from keras.optimizers import Adam
 from keras.layers import Activation, Lambda, Average, Input, Reshape, Conv2D, MaxPooling2D, ZeroPadding2D, Flatten, Dropout, Dense
 from keras.models import Model
 from keras.utils import plot_model, multi_gpu_model
@@ -18,10 +19,11 @@ parser.add_argument('--train_dir', type=str, default='/datax/yzhang/models/',
 parser.add_argument('--load_json', type=bool, default=False)
 parser.add_argument('--load_weights', type=bool, default=False)
 parser.add_argument('--epochs', type=int, default=300)
-parser.add_argument('--batch_size', type=int, default=512)
+parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
+parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
@@ -44,6 +46,9 @@ parser.add_argument('--sep', type=bool, default=False)
 parser.add_argument('--classifier_name', type=str, default="sub_classifer.h5")
 args = parser.parse_args()
 
+#facebook linear scaling rule. 
+args.lr  = args.lr * args.ngpu
+args.batch_size = args.batch_size * args.ngpu
 
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
  'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
@@ -233,7 +238,7 @@ for m in range(args.m0, args.m0+args.num_models):
         input_img = Input(shape=in_shp)
         out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
         model = Model(inputs=input_img, outputs=out)
-    model.compile(loss='categorical_crossentropy', optimizer='adam')
+    model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
 
     try:
