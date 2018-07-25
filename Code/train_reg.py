@@ -23,6 +23,7 @@ parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--noise', type=float, default=-1.)
+parser.add_argument('--fft', type=bool, default=False)
 parser.add_argument('--confireg', type=float, default=5.)
 parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
@@ -166,7 +167,9 @@ def get_train_batches(generators):
             noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
             batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
                 
-               
+        if args.fft:
+            batches_x = batch_fft(batches_x)
+
         batches_x = batches_x[idx]
         batches_y = batches_y[idx]
         batches_snr = batches_snr[idx]
@@ -203,6 +206,8 @@ def get_val_batches(gen):
                 noisestd = args.noise
                 noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
                 bx += noisestd * np.random.randn(shp0, shp1, shp2)
+        if args.fft:
+            bx = batch_fft(bx)
         yield bx, by
 
 for m in range(args.m0, args.m0+args.num_models):
