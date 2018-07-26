@@ -53,7 +53,7 @@ class LoadModRecData:
 
     '''
 
-    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None, load_snrs=None):
+    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None, load_snrs=None, num_samples_per_key=None):
         ''' init
 
             .. note::
@@ -68,12 +68,12 @@ class LoadModRecData:
 
         print(TAG + "Loading Data...")
 
-        self.signalData, self.oneHotLabels, self.signalLabels, self.snrLabels = self.loadData(datafile, load_mods=load_mods, load_snrs=load_snrs)
+        self.signalData, self.oneHotLabels, self.signalLabels, self.snrLabels = self.loadData(datafile, load_mods=load_mods, load_snrs=load_snrs, num_samples_per_key=num_samples_per_key)
         self.train_idx, self.val_idx, self.test_idx = self.split(trainRatio, validateRatio, testRatio)
 
         print(TAG + "Done.\n")
 
-    def loadData(self, fname, load_mods, load_snrs):
+    def loadData(self, fname, load_mods, load_snrs, num_samples_per_key):
         '''  Load dataset from pickled file '''
         
         
@@ -108,7 +108,10 @@ class LoadModRecData:
         number_of_examples = 0
         for modType in self.modTypes:
             for snrValue in self.snrValues:
-                number_of_examples = number_of_examples + len(self.dataCube[modType, snrValue])
+                if num_samples_per_key:
+                    number_of_examples = number_of_examples + num_samples_per_key
+                else:    
+                    number_of_examples = number_of_examples + len(self.dataCube[modType, snrValue])
 
         print (TAG + 'Number of Examples in Dataset: ' + str(number_of_examples))
 
@@ -130,7 +133,10 @@ class LoadModRecData:
             print(TAG + "[Modulation Dataset] Adding Collects for: " + str(modType))
             for snrValue in self.snrValues:
                 # get data for key,value
-                collect = self.dataCube[modType, snrValue]
+                if num_samples_per_key:
+                    collect = self.dataCube[modType, snrValue][:num_samples_per_key]
+                else:
+                    collect = self.dataCube[modType, snrValue]
                 for instance in collect:
                     signalData[example_index] = instance
                     signalLabels[example_index] = (modType, snrValue)
