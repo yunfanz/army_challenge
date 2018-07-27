@@ -67,6 +67,7 @@ if args.test_file > 0:
     data_file = args.data_dir + "training_data_chunk_" + str(args.test_file) + ".pkl"
     testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
 
+#print('!!!', mods)
 target_file = BASEDIR+"Test_Set_1_Army_Signal_Challenge.pkl"
 target_file2 = BASEDIR+"Test_Set_2_Army_Signal_Challenge.pkl"
 target_pred = BASEDIR+"TestSet1Predictions.csv"
@@ -80,7 +81,9 @@ targetdata2 = pickle.load(f, encoding='latin1')
 targetdata2 = np.stack([targetdata2[i+1] for i in range(len(targetdata2.keys()))], axis=0)
 targetdata2 = targetdata2[get_mod_group(target_pred2, mods)]
 targetdata = np.concatenate([targetdata1, targetdata2], axis=0)
-import IPython; IPython.embed()
+print('Got {} instances from target domain'.format(targetdata.shape[0]))
+print()
+#import IPython; IPython.embed()
 
 #global conv_index
 #conv_index=0
@@ -216,10 +219,10 @@ def get_val_batches(gen):
 
 for m in range(args.m0, args.m0+args.num_models):
     
-    valdata = data[m]
-    val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, args.epochs, use_shuffle=False)
-    vsteps = valdata.train_idx.size//train_batch_size
-    val_batches = get_val_batches(val_gen)
+    #valdata = data[m]
+    #val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, args.epochs, use_shuffle=False)
+    #vsteps = valdata.train_idx.size//train_batch_size
+    #val_batches = get_val_batches(val_gen)
 
 
     generators = []
@@ -231,7 +234,7 @@ for m in range(args.m0, args.m0+args.num_models):
         tsteps += d.train_idx.size
     tsteps = tsteps//train_batch_size 
     train_batches = get_train_batches(generators)
-    val_batches = get_val_batches(val_gen)
+    #val_batches = get_val_batches(val_gen)
 
     in_shp = (2, args.crop_to)
     input_img = Input(shape=in_shp); input_img_ = Input(shape=in_shp)
@@ -256,42 +259,47 @@ for m in range(args.m0, args.m0+args.num_models):
     GAN.compile(loss='categorical_crossentropy', optimizer=Adam(lr=1e-4))
 
 
+    d_loss = 0; g_loss = 0; c_loss = 0 
     losses = {"d":[], "g":[], "c":[]}
-    for e in range(args.epochs):  #actually num_batches
+    for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
         
         # Make generative images
-        bx, by = train_batches.next()
-        bx_ = np.random.choice(targetdata, args.batch_size)   
+        bx, by = next(train_batches)
+        bx_ = targetdata[np.random.randint(0, high=targetdata.shape[0], size=args.batch_size)]   
 
         emb = emb_model.predict(bx)
         emb_ = emb_model.predict(bx_)
-        
+        if step % 100 == 0:
+            print("Step {}, classification loss {}, discriminator loss {}, GAN loss {}".format(step, c_loss, d_loss, g_loss))
         # Train discriminator on generated images
         domain_X = np.concatenate((emb, emb_), axis=0)
         domain_y = np.zeros([2*args.batch_size,2])
-        domain_y[0:2*args.batch_size,1] = 1
-        domain_y[2*args.batch_size:,0] = 1
+        domain_y[0:args.batch_size,1] = 1
+        domain_y[args.batch_size:,0] = 1 #0 for target domain
 
+        #import IPython; IPython.embed()
         #make_trainable(discriminator,False)
         c_loss = model.train_on_batch(bx, by)
         losses["c"].append(c_loss)
         
+        if c_loss > 1.2 : continue #warm up classifier
         #make_trainable(discriminator,True)
         d_loss  = discriminator.train_on_batch(domain_X,domain_y)
         losses["d"].append(d_loss)
         
+        if c_loss > 1.1: continue
         #make_trainable(discriminator,False)
-        g_loss = GAN.train_on_batch(noise_tr, y2 )
+        y2 = np.zeros([args.batch_size,2])
+        y2[:,1] = 1  #1 for target domain
+        g_loss = GAN.train_on_batch(bx_, y2 )
         losses["g"].append(g_loss)
 
-        if e % 10 == 0:
-            print(c_loss, d_loss, g_loss)
 
 
 
 
 
-    # model_path = args.train_dir+'model{}.h5'.format(m)
+    model_path = args.train_dir+'model{}.h5'.format(m)
     # # if args.ngpu > 1:
     # #     with tf.device("/cpu:0"):
     # #         input_img = Input(shape=in_shp)
@@ -322,7 +330,7 @@ for m in range(args.m0, args.m0+args.num_models):
     # except(StopIteration):
     #     pass
     # model.load_weights(filepath)
-    # model.save(model_path)  
+    model.save(model_path)  
     
     # if args.test_file < 0: continue 
     # #Print test accuracies
