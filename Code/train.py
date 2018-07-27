@@ -47,7 +47,7 @@ parser.add_argument('--classifier_name', type=str, default="sub_classifer.h5")
 args = parser.parse_args()
 
 #facebook linear scaling rule. 
-args.lr  = args.lr * args.ngpu * (args.batch_size / 128)
+args.lr  = args.lr * args.ngpu * (args.batch_size / 256)
 args.batch_size = args.batch_size * args.ngpu
 
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
