@@ -20,13 +20,14 @@ parser.add_argument('--train_dir', type=str, default='/datax/yzhang/models/',
 parser.add_argument('--epochs', type=int, default=300)
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--ngpu', type=int, default=1)
+parser.add_argument('--nhidden', type=int, default=128)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--startdraw', type=int, default=20000,
                      help="step number to start drawing from test set 1")
 parser.add_argument('--lr', type=float, default=0.001)
-parser.add_argument('--dislr', type=float, default=0.001)
-parser.add_argument('--ganlr', type=float, default=0.0005)
+parser.add_argument('--dislr', type=float, default=0.0005)
+parser.add_argument('--ganlr', type=float, default=0.0002)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
@@ -142,7 +143,7 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     
     x = Flatten()(x)
     x = Dense(nhidden)(x)
-    x = Lambda(lambda  x: K.l2_normalize(x))(x)
+    x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
     out = out_tower(x, dr=0.5, reg=args.confireg)
     #out = Average()([out_mid, out_late])
     return out, x
@@ -243,13 +244,13 @@ for m in range(args.m0, args.m0+args.num_models):
 
     in_shp = (2, args.crop_to)
     input_img = Input(shape=in_shp); input_img_ = Input(shape=in_shp)
-    out, emb = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+    out, emb = googleNet(input_img,nhidden=args.nhidden,data_format='channels_last', num_classes=num_classes)
     model = Model(inputs=input_img, outputs=out)
     
     model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
 
-    d_in = Input(shape=(128,))
-    d_V = discriminate(d_in)
+    d_in = Input(shape=(args.nhidden,))
+    d_V = discriminate(d_in, nhidden=args.nhidden)
     discriminator = Model(d_in, d_V)
     discriminator.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.dislr))
 
