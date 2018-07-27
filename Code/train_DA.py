@@ -23,6 +23,8 @@ parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--lr', type=float, default=0.001)
+parser.add_argument('--dislr', type=float, default=0.001)
+parser.add_argument('--ganlr', type=float, default=0.001)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
@@ -144,14 +146,14 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     return out, x
 
 def discriminate(x, nhidden=128, dr=0.5):
-    x = Reshape((nhidden, 1))(x)
-    H = Conv1D(filters=256, kernel_size=5, strides=2, activation='relu')(x)
+#    x = Reshape((nhidden, 1))(x)
+#    H = Conv1D(filters=256, kernel_size=5, strides=2, activation='relu')(x)
     #H = LeakyReLU(0.2)(H)
     # H = Dropout(dropout_rate)(H)
     # H = Conv1D(filters=512, kernel_size=[2,7], strides=[2,2],  activation='relu')(H)
     # H = LeakyReLU(0.2)(H)
     # H = Dropout(dropout_rate)(H)
-    H = Flatten()(H)
+    H = x#Flatten()(x)
     H = Dense(256, activation='relu')(H)
     #H = LeakyReLU(0.2)(H)
     H = Dropout(dr)(H)
@@ -247,7 +249,7 @@ for m in range(args.m0, args.m0+args.num_models):
     d_in = Input(shape=(128,))
     d_V = discriminate(d_in)
     discriminator = Model(d_in, d_V)
-    discriminator.compile(loss='categorical_crossentropy', optimizer=Adam(lr=1e-3))
+    discriminator.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.dislr))
 
     make_trainable(discriminator, False)
 
@@ -257,7 +259,7 @@ for m in range(args.m0, args.m0+args.num_models):
     EMB = emb_model(gan_input)
     gan_V = discriminator(EMB)
     GAN = Model(gan_input, gan_V)
-    GAN.compile(loss='categorical_crossentropy', optimizer=Adam(lr=1e-4))
+    GAN.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.ganlr))
 
 
     d_loss = 0; g_loss = 0; c_loss = 0 
@@ -280,7 +282,6 @@ for m in range(args.m0, args.m0+args.num_models):
         c_loss = model.train_on_batch(bx, by)
         losses["c"].append(c_loss)
         
-        if c_loss > 1.2 : continue #warm up classifier
         #make_trainable(discriminator,True)
         emb = emb_model.predict(bx)
         emb_ = emb_model.predict(bx_)
@@ -289,14 +290,19 @@ for m in range(args.m0, args.m0+args.num_models):
         domain_y = np.zeros([2*args.batch_size,2])
         domain_y[0:args.batch_size,1] = 1
         domain_y[args.batch_size:,0] = 1 #0 for target domain
-        d_loss  = discriminator.train_on_batch(domain_X,domain_y)
+        if c_loss > 1.2 : #warm up classifier
+            d_loss  = 0.
+        else:
+            d_loss  = discriminator.train_on_batch(domain_X,domain_y)
         losses["d"].append(d_loss)
         
-        if c_loss > 1.1: continue
         #make_trainable(discriminator,False)
         y2 = np.zeros([args.batch_size,2])
         y2[:,1] = 1  #1 for target domain
-        g_loss = GAN.train_on_batch(bx_, y2 )
+        if c_loss > 1.05:
+            g_loss = GAN.test_on_batch(bx_, y2 )
+        else:
+            g_loss = GAN.train_on_batch(bx_, y2 )
         losses["g"].append(g_loss)
 
 
