@@ -22,9 +22,11 @@ parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
+parser.add_argument('--startdraw', type=int, default=20000,
+                     help="step number to start drawing from test set 1")
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--dislr', type=float, default=0.001)
-parser.add_argument('--ganlr', type=float, default=0.001)
+parser.add_argument('--ganlr', type=float, default=0.0005)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
@@ -270,11 +272,11 @@ for m in range(args.m0, args.m0+args.num_models):
             bx, by = next(train_batches)
         except(StopIteration):
             break
-        if step < 20000:
+        if step < args.startdraw:
             bx_ = targetdata2[np.random.randint(0, high=targetdata2.shape[0], size=args.batch_size)]   
         else:
             bx_ = targetdata[np.random.randint(0, high=targetdata.shape[0], size=args.batch_size)]
-        if step == 20000:
+        if step == args.startdraw:
             print('Start drawing from test set 1')
         if step % 100 == 0:
             vx, vy = next(val_batches)
