@@ -84,7 +84,7 @@ targetdata2 = pickle.load(f, encoding='latin1')
 targetdata2 = np.stack([targetdata2[i+1] for i in range(len(targetdata2.keys()))], axis=0)
 targetdata2 = targetdata2[get_mod_group(target_pred2, mods)]
 targetdata = np.concatenate([targetdata1, targetdata2], axis=0)
-print('Got {} instances from target domain'.format(targetdata.shape[0]))
+print('Got {} instances from set1, {} from set 2'.format(targetdata1.shape[0],targetdata2.shape[0]))
 print()
 #import IPython; IPython.embed()
 
@@ -270,8 +270,12 @@ for m in range(args.m0, args.m0+args.num_models):
             bx, by = next(train_batches)
         except(StopIteration):
             break
-        bx_ = targetdata[np.random.randint(0, high=targetdata.shape[0], size=args.batch_size)]   
-
+        if step < 20000:
+            bx_ = targetdata2[np.random.randint(0, high=targetdata2.shape[0], size=args.batch_size)]   
+        else:
+            bx_ = targetdata[np.random.randint(0, high=targetdata.shape[0], size=args.batch_size)]
+        if step == 20000:
+            print('Start drawing from test set 1')
         if step % 100 == 0:
             vx, vy = next(val_batches)
             v_loss = model.test_on_batch(vx, vy)
