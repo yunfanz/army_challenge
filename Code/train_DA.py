@@ -31,6 +31,7 @@ parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
 parser.add_argument('--test_file', type=int, default=-1)
 parser.add_argument('--mod_group', type=int, default=4)
+parser.add_argument('--test_dir', type=str, default='/datax/yzhang/test_data/')
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
                     help='an integer for the accumulator')
 parser.add_argument('--data_files', type=int, nargs='+',
@@ -51,13 +52,13 @@ all_mods = [np.arange(24), np.array([1,9,10,11,12,13]),
             np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3])]
 mods = all_mods[args.mod_group]
 num_classes = mods.size
-BASEDIR = "/home/yunfanz/"
+BASEDIR = args.test_dir
 model_path = args.train_dir+args.classifier_name
 
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
-for i in range(2):
+for i in range(15):
     if i in [ args.test_file]: continue
     data_file = args.data_dir + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
@@ -219,10 +220,10 @@ def get_val_batches(gen):
 
 for m in range(args.m0, args.m0+args.num_models):
     
-    #valdata = data[m]
-    #val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, args.epochs, use_shuffle=False)
-    #vsteps = valdata.train_idx.size//train_batch_size
-    #val_batches = get_val_batches(val_gen)
+    valdata = data[m]
+    val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, args.epochs, use_shuffle=False)
+    vsteps = valdata.train_idx.size//train_batch_size
+    val_batches = get_val_batches(val_gen)
 
 
     generators = []
@@ -262,20 +263,17 @@ for m in range(args.m0, args.m0+args.num_models):
     d_loss = 0; g_loss = 0; c_loss = 0 
     losses = {"d":[], "g":[], "c":[]}
     for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
-        
-        # Make generative images
-        bx, by = next(train_batches)
+        try:
+            # Make generative images
+            bx, by = next(train_batches)
+        except(StopIteration):
+            break
         bx_ = targetdata[np.random.randint(0, high=targetdata.shape[0], size=args.batch_size)]   
 
-        emb = emb_model.predict(bx)
-        emb_ = emb_model.predict(bx_)
         if step % 100 == 0:
-            print("Step {}, classification loss {}, discriminator loss {}, GAN loss {}".format(step, c_loss, d_loss, g_loss))
-        # Train discriminator on generated images
-        domain_X = np.concatenate((emb, emb_), axis=0)
-        domain_y = np.zeros([2*args.batch_size,2])
-        domain_y[0:args.batch_size,1] = 1
-        domain_y[args.batch_size:,0] = 1 #0 for target domain
+            vx, vy = next(val_batches)
+            v_loss = model.test_on_batch(vx, vy)
+            print("Step {}, classification loss {}, discriminator loss {}, GAN loss {}, validation loss {}".format(step, c_loss, d_loss, g_loss, v_loss))
 
         #import IPython; IPython.embed()
         #make_trainable(discriminator,False)
@@ -284,6 +282,13 @@ for m in range(args.m0, args.m0+args.num_models):
         
         if c_loss > 1.2 : continue #warm up classifier
         #make_trainable(discriminator,True)
+        emb = emb_model.predict(bx)
+        emb_ = emb_model.predict(bx_)
+        # Train discriminator on generated images
+        domain_X = np.concatenate((emb, emb_), axis=0)
+        domain_y = np.zeros([2*args.batch_size,2])
+        domain_y[0:args.batch_size,1] = 1
+        domain_y[args.batch_size:,0] = 1 #0 for target domain
         d_loss  = discriminator.train_on_batch(domain_X,domain_y)
         losses["d"].append(d_loss)
         
