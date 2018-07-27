@@ -107,7 +107,7 @@ def out_tower(x, dr=0.5, reg=-1):
     out = Activation('softmax')(logits)
     return out
 
-def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,6,2], features=[1,1,1,1,1]):
     
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
@@ -249,11 +249,11 @@ for m in range(args.m0, args.m0+args.num_models):
             validation_data=val_batches,
             validation_steps=vsteps,
             callbacks = [
-              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=True, save_best_only=True, mode='auto'),
-              #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=False, save_best_only=True, mode='auto'),
+              keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
               keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.stoppatience,verbose=0, mode='auto'),
 
-              #keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
+              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
     except(StopIteration):
         pass
