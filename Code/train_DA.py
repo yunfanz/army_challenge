@@ -143,8 +143,8 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     
     x = Flatten()(x)
     x = Dense(nhidden)(x)
-    #x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
-    out = out_tower(x, dr=0.3, reg=args.confireg)
+    x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
+    out = out_tower(x, dr=0.5, reg=args.confireg)
     #out = Average()([out_mid, out_late])
     return out, x
 
@@ -313,8 +313,8 @@ for m in range(args.m0, args.m0+args.num_models):
         losses["g"].append(g_loss)
 
         if step>3000 and step % 100 ==0: # one epoch of test data
-            epochc_loss = np.mean(losses["C"][-100:])
-            meanc_loss = np.mean(losses["C"][-800:])
+            epochc_loss = np.mean(losses["c"][-100:])
+            meanc_loss = np.mean(losses["c"][-800:])
             lr = model.optimizer.lr
             dislr = discriminator.optimizer.lr
             ganlr = GAN.optimizer.lr
