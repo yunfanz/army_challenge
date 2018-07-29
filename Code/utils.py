@@ -3,7 +3,7 @@ from data_loader import *
 from scipy.signal import *
 import os,fnmatch
 import numpy as np
-from scipy import interpolate
+from scipy import interpolate,signal
 import pandas as pd
 
 def get_mod_group(csv_file, con_arr, thresh=0.5):
