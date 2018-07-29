@@ -201,3 +201,33 @@ def get_periodogram(cdata, nfft=512, remove_DC=False):
         fts.append(ft)
     fts = np.asarray(fts)
     return fts[...,np.newaxis]
+
+
+
+def perturb_batch(batch, labels):
+    # as of now perturbs all mods the same way
+    perturb_prob = np.random.uniform(0,1,batch.shape[0])
+    p = 0.3
+    for i in np.where(perturb_prob < p)[0]:
+        ##### perturb signal
+        ### with half the probability take every k-th element and resample to right size
+        sig  = batch[i][0] + 1j * batch[i][1]
+        if perturb_prob[i] < p/2:
+            k = np.random.choice([2,3,4,5,6]) 
+            sig = signal.resample(sig[::4], 1024)
+        ### with the other half take some sub sample of the signal and resample to right shape
+        else:
+            # get the random size of the sub sample
+            size = np.random.randint(512,1024)
+            
+            # get the random beginning point
+            beg = np.random.randint(0, 1024-size)
+            sig = signal.resample(sig[beg:beg+size], 1024)
+        
+        
+        ##### save the perturbed signal
+        batch[i][0] = sig.real
+        batch[i][1] = sig.imag
+
+    return batch
+        
