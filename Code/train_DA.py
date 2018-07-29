@@ -23,7 +23,7 @@ parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--nhidden', type=int, default=128)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
-parser.add_argument('--startdraw', type=int, default=20000,
+parser.add_argument('--startdraw', type=int, default=40000,
                      help="step number to start drawing from test set 1")
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--dislr', type=float, default=0.0005)
@@ -143,8 +143,8 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     
     x = Flatten()(x)
     x = Dense(nhidden)(x)
-    x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
-    out = out_tower(x, dr=0.5, reg=args.confireg)
+    #x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
+    out = out_tower(x, dr=0.3, reg=args.confireg)
     #out = Average()([out_mid, out_late])
     return out, x
 
@@ -312,7 +312,16 @@ for m in range(args.m0, args.m0+args.num_models):
             g_loss = GAN.train_on_batch(bx_, y2 )
         losses["g"].append(g_loss)
 
-
+        if step>3000 and step % 100 ==0: # one epoch of test data
+            epochc_loss = np.mean(losses["C"][-100:])
+            meanc_loss = np.mean(losses["C"][-800:])
+            lr = model.optimizer.lr
+            dislr = discriminator.optimizer.lr
+            ganlr = GAN.optimizer.lr
+            if meanc_loss <= epochc_loss and (lr > 1.e-5 and dislr > 1.e-5 and ganlr > 1.e-5):
+                K.set_value(model.optimizer.lr, 0.1*lr)
+                K.set_value(discriminator.optimizer.lr, 0.1*dislr)
+                K.set_value(GAN.optimizer.lr, 0.1*ganlr)
 
 
 
