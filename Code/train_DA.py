@@ -315,9 +315,9 @@ for m in range(args.m0, args.m0+args.num_models):
         if step>3000 and step % 100 ==0: # one epoch of test data
             epochc_loss = np.mean(losses["c"][-100:])
             meanc_loss = np.mean(losses["c"][-800:])
-            lr = model.optimizer.lr
-            dislr = discriminator.optimizer.lr
-            ganlr = GAN.optimizer.lr
+            lr = K.eval(model.optimizer.lr)
+            dislr = K.eval(discriminator.optimizer.lr)
+            ganlr = K.eval(GAN.optimizer.lr)
             if meanc_loss <= epochc_loss and (lr > 1.e-5 and dislr > 1.e-5 and ganlr > 1.e-5):
                 K.set_value(model.optimizer.lr, 0.1*lr)
                 K.set_value(discriminator.optimizer.lr, 0.1*dislr)
