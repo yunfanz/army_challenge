@@ -4,6 +4,25 @@ from scipy.signal import *
 import os,fnmatch
 import numpy as np
 from scipy import interpolate
+import pandas as pd
+
+def get_mod_group(csv_file, con_arr, thresh=0.5):
+    """return 0 indexed instances that are within mods
+       Currently requires columns in alphabeticall order in csv"""
+    #print('Getting ', mods)
+    pred = pd.read_csv(csv_file)
+    cols = pred.columns[1:]
+    #con_arr = np.sort([list(cols).index(col) for col in mods])
+    pred_arr = np.array(pred[cols])
+    pred_mods = np.argmax(pred_arr, axis=1)
+    pred_probs = np.amax(pred_arr, axis=1)
+    return np.array([(q in con_arr) and (pred_probs[i]>thresh) for i, q in enumerate(pred_mods)]).nonzero()[0]
+
+
+def make_trainable(net, val):
+    net.trainable = val
+    for l in net.layers:
+        l.trainable = val
 
 def batch_fft(batches_x, norm=True):
     shape0 = batches_x.shape

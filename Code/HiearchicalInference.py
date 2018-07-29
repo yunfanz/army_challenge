@@ -21,9 +21,11 @@ parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--test', type=int, default=1)
 parser.add_argument('--eps', type=float, default=1.e-15)
 parser.add_argument('--model', type=str, default=None,
-                    help='an integer for the accumulator')
+                    help='group 0 model')
 parser.add_argument('--submodel', type=str, default=None,
                     help='an integer for the accumulator')
+parser.add_argument('--qammodel', type=str, default=None)
+parser.add_argument('--pskmodel', type=str, default=None)
 parser.add_argument('--num_classes', type=int, default=24,
                     help='an integer for the accumulator')
 parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/training_data/',
@@ -43,6 +45,8 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
 
 mods = np.array([1,9,10,11,12,13])
 AMmods = np.array([4,5])
+QAMmods = np.array([6,7,20,21,22])
+PSKmods = np.array([0,3])
 BASEDIR = args.train_dir
 DATABASE = args.data_dir
 if args.model is None:
@@ -59,6 +63,20 @@ elif os.path.isdir(args.submodel):
     print(s_path)
 else:
     s_path = [args.submodel]
+if args.qammodel is None:
+    q_path = None
+elif os.path.isdir(args.qammodel):
+    q_path = find_files(args.qammodel, pattern="model*.h5")
+    print(q_path)
+else:
+    q_path = [args.qammodel]
+if args.pskmodel is None:
+    p_path = None
+elif os.path.isdir(args.pskmodel):
+    p_path = find_files(args.pskmodel, pattern="model*.h5")
+    print(p_path)
+else:
+    p_path = [args.pskmodel]
 output_path = BASEDIR+"TestSet{}Predictions.csv".format(args.test)
 
 if args.mode == 'test':
@@ -86,6 +104,8 @@ def _get_prediction(path, test_X):
     return pred
 
 def ens_predictions(paths, test_X):
+    if paths is None:
+        return None
     if args.ngpu>1:
         ids = range(min(len(m_path), args.ngpu))
         manager = Manager()
@@ -114,6 +134,12 @@ def get_logloss(test_Y_i_hat, test_Y_i, EPS, round_to=None):
     logloss = - np.sum(test_Y_i*np.log(test_Y_i_hat))/test_Y_i.shape[0]
     return logloss
 
+def hiarch_update(Y_i_hat, sub_hat, mods):
+    sub_sum = np.sum(Y_i_hat[mods])
+    Y_i_hat[mods] = sub_sum * sub_hat
+    k = int(np.argmax(Y_i_hat))
+    return Y_i_hat, k
+
 if args.mode == 'test':
     acc = {}
     snrs = np.arange(-15,15, 5)
@@ -136,6 +162,8 @@ if args.mode == 'test':
         # estimate classes
         test_Y_i_hat = ens_predictions(m_path, test_X_i)#model.predict(test_X_i) # shape (batch, nmods)
         sub_Y_i_hat = ens_predictions(s_path, test_X_i)#submodel.predict(test_X_i)
+        qam_Y_i_hat = ens_predictions(q_path, test_X_i)#submodel.predict(test_X_i)
+        psk_Y_i_hat = ens_predictions(p_path, test_X_i)#submodel.predict(test_X_i)
         conf = np.zeros([len(classes),len(classes)])
         confnorm = np.zeros([len(classes),len(classes)])
 
@@ -144,10 +172,11 @@ if args.mode == 'test':
             j = list(test_Y_i[i,:]).index(1)
             k = int(np.argmax(test_Y_i_hat[i,:]))
             if s_path is not None and k in mods:
-                sub_sum = np.sum(test_Y_i_hat[i,mods])
-                sub_hat = sub_Y_i_hat[i]
-                test_Y_i_hat[i,mods] = sub_sum * sub_hat
-                k = int(np.argmax(test_Y_i_hat[i,:]))
+                test_Y_i_hat[i], k = hiarch_update(test_Y_i_hat[i], sub_Y_i_hat[i], mods)
+            elif q_path is not None and k in QAMmods:
+                test_Y_i_hat[i], k = hiarch_update(test_Y_i_hat[i], qam_Y_i_hat[i], QAMmods)
+            elif p_path is not None and k in PSKmods:
+                test_Y_i_hat[i], k = hiarch_update(test_Y_i_hat[i], psk_Y_i_hat[i], PSKmods)
             elif k in AMmods and False:
                 sub_sum = np.sum(test_Y_i_hat[i,AMmods])
                 sub_hat = 0.5*np.ones_like(test_Y_i_hat[i,AMmods])
@@ -156,12 +185,11 @@ if args.mode == 'test':
             conf[j,k] = conf[j,k] + 1
         for eps in [EPS]:
             logloss = get_logloss(test_Y_i_hat.copy(), test_Y_i, eps)
-            print(eps, logloss)
         for i in range(0,len(classes)):
             confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
-        plt.figure(figsize=(10,10))
-        plot_confusion_matrix(confnorm, labels=classes, title="hiearchical (SNR=%d)"%(snr))
-        plt.savefig(BASEDIR+"ConfusionMatrixSNR=%d"%(snr))
+        #plt.figure(figsize=(10,10))
+        #plot_confusion_matrix(confnorm, labels=classes, title="hiearchical (SNR=%d)"%(snr))
+        #plt.savefig(BASEDIR+"ConfusionMatrixSNR=%d"%(snr))
     
         cor = np.sum(np.diag(conf))
         ncor = np.sum(conf) - cor
@@ -173,13 +201,17 @@ if args.mode == 'test':
 
 else:
     preds = ens_predictions(m_path,testdata) 
-    subpreds = ens_predictions(s_path,testdata) if s_path is not None else None
+    subpreds = ens_predictions(s_path,testdata) 
+    qampreds = ens_predictions(q_path,testdata) 
+    pskpreds = ens_predictions(p_path,testdata) 
     for i in range(0,preds.shape[0]):
         k = int(np.argmax(preds[i,:]))
         if s_path is not None and k in mods:
-            sub_sum = np.sum(preds[i,mods])
-            sub_hat = subpreds[i]
-            preds[i,mods] = sub_sum * sub_hat
+            preds[i], k = hiarch_update(preds[i], subpreds[i], mods)
+        elif q_path is not None and k in QAMmods:
+            preds[i], k = hiarch_update(preds[i], qampreds[i], QAMmods)
+        elif p_path is not None and k in PSKmods:
+            preds[i], k = hiarch_update(preds[i], pskpreds[i], PSKmods)
     preds = np.where(preds>EPS, preds, EPS)
     preds = np.where(preds<1-EPS, preds, 1-EPS)
     preds /= np.sum(preds, axis=1, keepdims=True)
