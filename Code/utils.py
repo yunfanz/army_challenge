@@ -204,7 +204,7 @@ def get_periodogram(cdata, nfft=512, remove_DC=False):
 
 
 
-def perturb_batch(batch, labels, p=0.3):
+def perturb_batch(batch, labels=None, p=0.3):
     # as of now perturbs all mods the same way
     perturb_prob = np.random.uniform(0,1,batch.shape[0])
     for i in np.where(perturb_prob < p)[0]:

@@ -24,6 +24,7 @@ parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--fft', type=bool, default=False)
+parser.add_argument('--perturbp', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=3.5)
 parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
@@ -128,9 +129,10 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1
     #out = Average()([out_mid, out_late])
     return out
 
-def tf_fft(x, norm=True):
+def tf_fft(x, norm=True, shift=True, N=1024):
     x_complex = tf.complex(real=x[:,0,:], imag=x[:,1,:])
     x_complex = tf.spectral.fft(x_complex)
+    x_complex = tf.concat([x_complex[:,N//2:][::-1], x_complex[:,:N//2]], axis=1)
     x = tf.stack([tf.real(x_complex), tf.imag(x_complex)], axis=1)
     if norm:
         x /= tf.reduce_mean(tf.abs(x))
@@ -151,8 +153,9 @@ def googleNet_n(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2
     for dep in range(num_layers[0]):
         xft = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(xft)
     xft = MaxPooling2D([1,3], strides=[1,2], padding='same')(xft)
+    print(x.get_shape(), xft.get_shape())
     x = keras.layers.concatenate([x, xft], axis = 3)
-
+    print(x.get_shape())
     for dep in range(num_layers[1]):
         x = inception(x, height=2, fs=np.array([32,32,32,32,32])*features[2], tw_tower=True)
     x = MaxPooling2D([1,3], strides=2, padding='same')(x)
@@ -200,7 +203,8 @@ def get_train_batches(generators):
         
         if args.resample is not None and np.random.random()>0.8:
             batches_x = resample(batches_x, f=args.resample)
-        
+        if args.perturbp > 0:
+            batches_x = perturb_batch(batches_x, p=args.perturbp) 
         if args.noise > 0:
             shp0, shp1, shp2 = batches_x.shape
             noisestd = args.noise/batches_snr[:,np.newaxis, np.newaxis]
