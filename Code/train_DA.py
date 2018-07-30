@@ -113,7 +113,7 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False, t
     return output
 
 def out_tower(x, dr=0.5, reg=-1):
-    output = Dropout(dr)(x)
+    output = x#Dropout(dr)(x)
     logits    = Dense(num_classes)(output)
     if reg > 0:
         #logits = reg * Activation('tanh')(logits)
@@ -143,7 +143,8 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     
     x = Flatten()(x)
     x = Dense(nhidden)(x)
-    x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
+    x = Dropout(0.5)(x)
+    #x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
     out = out_tower(x, dr=0.5, reg=args.confireg)
     #out = Average()([out_mid, out_late])
     return out, x

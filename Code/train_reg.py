@@ -129,9 +129,9 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1
     return out
 
 def tf_fft(x):
-    x_complex = tf.complex(real=x[...,0], imag=x[...,1])
+    x_complex = tf.complex(real=x[:,0,:], imag=x[:,1,:])
     x_complex = tf.spectral.fft(x_complex)
-    return tf.stack([tf.real(x_complex), tf.imag(x_complex)], axis=-1)
+    return tf.stack([tf.real(x_complex), tf.imag(x_complex)], axis=1)
 def googleNet_n(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
     xft = Lambda(lambda v: tf_fft(v))(x)
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
