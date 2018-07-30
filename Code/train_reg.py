@@ -251,10 +251,8 @@ def get_val_batches(gen):
 for m in range(args.m0, args.m0+args.num_models):
     
     valdata = data[m]
-    
     val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
     vsteps = valdata.train_idx.size//train_batch_size
-    
     val_batches = get_val_batches(val_gen)
 
 
@@ -267,12 +265,8 @@ for m in range(args.m0, args.m0+args.num_models):
         tsteps += d.train_idx.size
     tsteps = tsteps//train_batch_size 
     train_batches = get_train_batches(generators)
-    val_batches = get_val_batches(val_gen)
 
     in_shp = (2, args.crop_to)
-    input_img = Input(shape=in_shp)
-    out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-    model = Model(inputs=input_img, outputs=out)
     model_path = args.train_dir+'model{}.h5'.format(m)
     if args.ngpu > 1:
         with tf.device("/cpu:0"):
