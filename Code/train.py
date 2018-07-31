@@ -32,7 +32,7 @@ parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--perturbp', type=float, default=-1.)
 parser.add_argument('--val_file', type=int, default=13)
 parser.add_argument('--lrpatience', type=int, default=8)
-parser.add_argument('--stoppatience', type=int, default=15)
+parser.add_argument('--stoppatience', type=int, default=8)
 parser.add_argument('--minlr', type=float, default=0.00001)
 parser.add_argument('--noiseclip', type=float, default=100.)
 parser.add_argument('--test_file', type=int, default=-1)
@@ -116,7 +116,7 @@ def out_tower(x, dr=0.5, reg=-1):
     out = Activation('softmax')(logits)
     return out
 
-def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,4,2], features=[1,1,1,1,1]):
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
     
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
@@ -193,7 +193,8 @@ for m in range(args.m0, args.m0+args.num_models):
         input_img = Input(shape=in_shp)
         out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
         model = Model(inputs=input_img, outputs=out)
-    model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
+    loss_func = 'binary_crossentropy' if num_classes == 2 else 'categorical_crossentropy'
+    model.compile(loss=loss_func, optimizer=Adam(lr=args.lr))
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
 
     try:
@@ -205,10 +206,10 @@ for m in range(args.m0, args.m0+args.num_models):
             validation_steps=vsteps,
             callbacks = [
               keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=False, save_best_only=True, mode='auto'),
-              keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
+              #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
               keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.stoppatience,verbose=0, mode='auto'),
 
-              keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
+              #keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
     except(StopIteration):
         pass

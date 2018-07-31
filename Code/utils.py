@@ -285,11 +285,13 @@ def get_train_batches_small_memory(data_names,train_batch_size, number_of_epochs
     tsteps_per_file (int): how many steps per file(s) before loading in new files
     load_mods: (list of strings): modulations to load
     """
-    #i = 0
+    i = 0 #need these for random seeds are fixed internally
+    choices = np.random.randint(low=0, high=len(data_names), size=number_of_epochs*len(data_names)) 
     while True:
         #  build generators
         generators = []
-        d = LoadModRecData(np.random.choice(data_names), 1., 0., 0., load_mods=load_mods, verbose=False)
+        data_file = data_names[choices[i]]; i += 1
+        d = LoadModRecData(data_file, 1., 0., 0., load_mods=load_mods, verbose=False)
         generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True, yield_snr=True))
         #i = (i+1) % len(data_names)
         
