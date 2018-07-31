@@ -53,7 +53,7 @@ class LoadModRecData:
 
     '''
 
-    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None, load_snrs=None, num_samples_per_key=None):
+    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None, load_snrs=None, num_samples_per_key=None, verbose=True):
         ''' init
 
             .. note::
@@ -65,13 +65,14 @@ class LoadModRecData:
         self.python_version_3 = False
         if sys.version_info >= (3, 0):
             self.python_version_3 = True
+        self.verbose = verbose
 
-        print(TAG + "Loading Data...")
+        print(TAG + "Loading Datafile, ", datafile)
 
         self.signalData, self.oneHotLabels, self.signalLabels, self.snrLabels = self.loadData(datafile, load_mods=load_mods, load_snrs=load_snrs, num_samples_per_key=num_samples_per_key)
         self.train_idx, self.val_idx, self.test_idx = self.split(trainRatio, validateRatio, testRatio)
-
-        print(TAG + "Done.\n")
+        if self.verbose:
+            print(TAG + "Done.\n")
 
     def loadData(self, fname, load_mods, load_snrs, num_samples_per_key):
         '''  Load dataset from pickled file '''
@@ -104,7 +105,8 @@ class LoadModRecData:
         snrOneHotArrays = np.eye(len(self.snrValues), dtype=int)
 
         # Count Number of examples
-        print(TAG + "Counting Number of Examples in Dataset...")
+        if self.verbose:
+            print(TAG + "Counting Number of Examples in Dataset...")
         number_of_examples = 0
         for modType in self.modTypes:
             for snrValue in self.snrValues:
@@ -112,8 +114,8 @@ class LoadModRecData:
                     number_of_examples = number_of_examples + num_samples_per_key
                 else:    
                     number_of_examples = number_of_examples + len(self.dataCube[modType, snrValue])
-
-        print (TAG + 'Number of Examples in Dataset: ' + str(number_of_examples))
+        if self.verbose:
+            print (TAG + 'Number of Examples in Dataset: ' + str(number_of_examples))
 
         # pre-allocate arrays
         signalData = [None] * number_of_examples
@@ -130,7 +132,8 @@ class LoadModRecData:
             snr_to_one_hot_index[self.snrValues[i]] = i
             
         for modType in self.modTypes:
-            print(TAG + "[Modulation Dataset] Adding Collects for: " + str(modType))
+            if self.verbose:
+                print(TAG + "[Modulation Dataset] Adding Collects for: " + str(modType))
             for snrValue in self.snrValues:
                 # get data for key,value
                 if num_samples_per_key:
@@ -150,14 +153,16 @@ class LoadModRecData:
             one_hot_index += 1  # keep track of iteration for one hot vector generation
 
         # convert to np.arrays
-        print(TAG + "Converting to numpy arrays...")
+        if self.verbose:
+            print(TAG + "Converting to numpy arrays...")
         signalData = np.asarray(signalData)
         oneHotLabels = np.asarray(oneHotLabels)
         signalLabels = np.asarray(signalLabels)
         snrLabels = np.asarray(snrLabels)
 
         # Shuffle data
-        print(TAG + "Shuffling Data...")
+        if self.verbose:
+            print(TAG + "Shuffling Data...")
         """ signalData_shuffled, signalLabels_shuffled, oneHotLabels_shuffled """
         # Randomly shuffle data, use predictable seed
         np.random.seed(2017)
@@ -173,16 +178,16 @@ class LoadModRecData:
         '''  split dataset into train, validation, and test '''
 
         # Split data into train/validate/test via indexing
-        print(TAG + "Splitting Data...")
+        if self.verbose:
+            print(TAG + "Splitting Data...")
 
         # Determine how many samples go into each set
         [num_sigs, num_samples] = np.shape(self.oneHotLabels)
         num_train = np.int(np.floor(num_sigs * trainRatio))
         num_val = np.int(np.floor(num_sigs * validateRatio))
         num_test = np.int(num_sigs - num_train - num_val)
-
-        print(
-        TAG + 'Train Size: ' + str(num_train) + ' Validation Size: ' + str(num_val) + ' Test Size: ' + str(num_test))
+        if self.verbose:
+            print(TAG + 'Train Size: ' + str(num_train) + ' Validation Size: ' + str(num_val) + ' Test Size: ' + str(num_test))
         # Generate a random permutation of the sample indicies
         rand_perm = np.random.permutation(num_sigs)
 

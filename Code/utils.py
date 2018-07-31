@@ -289,7 +289,7 @@ def get_train_batches_small_memory(data_names,train_batch_size, number_of_epochs
     while True:
         #  build generators
         generators = []
-        d = LoadModRecData(np.random.choice(data_names), 1., 0., 0., load_mods=load_mods)
+        d = LoadModRecData(np.random.choice(data_names), 1., 0., 0., load_mods=load_mods, verbose=False)
         generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True, yield_snr=True))
         #i = (i+1) % len(data_names)
         
