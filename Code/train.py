@@ -50,7 +50,7 @@ parser.add_argument('--classifier_name', type=str, default="sub_classifer.h5")
 args = parser.parse_args()
 
 #facebook linear scaling rule. 
-args.lr  = args.lr * args.ngpu * (args.batch_size / 256)
+args.lr  = args.lr * args.ngpu * (args.batch_size / 512)
 args.batch_size = args.batch_size * args.ngpu
 
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
@@ -59,7 +59,7 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
  'QAM32', 'QAM64', 'QPSK']
 
 all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), 
-            np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3])]
+            np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3]), np.array([0,3,6,7,20,21,22])]
 mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.data_dir
@@ -164,7 +164,7 @@ for m in range(args.m0, args.m0+args.num_models):
             generators.append(d.batch_iter(d.train_idx, args.batch_size, args.epochs, use_shuffle=True, yield_snr=True))
             tsteps += d.train_idx.size
         tsteps = tsteps//args.batch_size 
-        train_batches = get_train_batches(generators,noise=args.noise, perturbp=args.perturbp)
+        train_batches = get_train_batches(generators, train_batch_size=args.batch_size, noise=args.noise, perturbp=args.perturbp)
     else:
         
         valdata = data[m]
