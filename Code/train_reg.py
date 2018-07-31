@@ -199,7 +199,7 @@ for m in range(args.m0, args.m0+args.num_models):
             generators.append(d.batch_iter(d.train_idx, args.batch_size, args.epochs, use_shuffle=True, yield_snr=True))
             tsteps += d.train_idx.size
         tsteps = tsteps//args.batch_size 
-        train_batches = get_train_batches(generators,noise=args.noise, perturbp=args.perturbp)
+        train_batches = get_train_batches(generators, train_batch_size=args.batch_size, noise=args.noise, perturbp=args.perturbp)
     else:
         
         valdata = data[m]
