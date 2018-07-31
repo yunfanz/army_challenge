@@ -334,8 +334,8 @@ def get_train_batches_small_memory(data_names,train_batch_size, number_of_epochs
 def get_val_batches(gen):
     while True:
         bx, by = next(gen)
-        if args.crop_to < 1024:
-            c_start = np.random.randint(low=0, high=1024-args.crop_to)
-            bx = bx[...,c_start:c_start+args.crop_to]
-            assert bx.shape[-1] == args.crop_to
+        #if args.crop_to < 1024:
+        #    c_start = np.random.randint(low=0, high=1024-args.crop_to)
+        #    bx = bx[...,c_start:c_start+args.crop_to]
+        #    assert bx.shape[-1] == args.crop_to
         yield bx, by
