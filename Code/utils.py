@@ -233,3 +233,122 @@ def perturb_batch(batch, labels=None, p=0.3):
 
     return batch
         
+
+    
+    
+def get_train_batches(generators):
+    while True:
+        batches_x, batches_y, batches_snr = [], [], []
+
+        for gen in generators:
+            batch_x, batch_y, batch_labels = next(gen)
+            batches_x.append(batch_x)
+            batches_y.append(batch_y)
+            #print(batch_labels)
+            batches_snr.append(10**((batch_labels[:,1]).astype(np.float)/10.))
+            
+        batches_x = np.concatenate(batches_x)
+        batches_y = np.concatenate(batches_y)
+        batches_snr = np.concatenate(batches_snr)
+        idx = np.random.permutation(batches_x.shape[0])
+        
+        
+        if args.noise > 0:
+            shp0, shp1, shp2 = batches_x.shape
+            noisestd = args.noise/batches_snr[:,np.newaxis, np.newaxis]
+            noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
+            batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
+                
+        if args.resample is not None and np.random.random()>0.8:
+            batches_x = resample(batches_x, f=args.resample)
+              
+        batches_x = batches_x[idx]
+        batches_y = batches_y[idx]
+        batches_snr = batches_snr[idx]
+        
+        for i in range(len(generators)):
+            beg = i * train_batch_size
+            end = beg + train_batch_size
+            bx, by, bs = batches_x[beg:end], batches_y[beg:end], batches_snr[beg:end]
+            if False and np.random.random()>0.5:
+                bx = bx[...,::-1]
+            
+            if args.crop_to < 1024:
+                c_start = np.random.randint(low=0, high=1024-args.crop_to)
+                bx = bx[...,c_start:c_start+args.crop_to]
+                assert bx.shape[-1] == args.crop_to
+            yield bx, by
+        
+
+def get_train_batches_small_memory(data_names, num_files, tsteps_per_file,val_index, load_mods = None):
+    """
+    Generator to return batches of train data and labels reading a certain number of files at a time. 
+    Reads as many files in at once as we want
+    data_names (list of strings):  All training files we will use, excludes test file
+    num_files (int): how many files at once we read in
+    tsteps_per_file (int): how many steps per file(s) before loading in new files
+    val_index (int): index of validation file
+    load_mods: (list of strings): modulations to load
+    """
+    while True:
+        #  build generators
+        generators = []
+        i = 0
+        for j in range(num_files):
+            # if validation file, skip this training file
+            if data_names[i] == BASEDIR + "training_data_chunk_" + str(val_index) + ".pkl":
+                i = (i+1) % len(data_names)
+            d = LoadModRecData(data_names[i], 1., 0., 0., load_mods=load_mods)
+            generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True, yield_snr=True))
+            i = (i+1) % len(data_names)
+        
+        for k in range(tsteps_per_file):
+            batches_x, batches_y, batches_snr = [], [], []
+            for gen in generators:
+                batch_x, batch_y, batch_labels = next(gen)
+                batches_x.append(batch_x)
+                batches_y.append(batch_y)
+                batches_snr.append(10**((batch_labels[:,1]).astype(np.float)/10.))
+            
+            batches_x = np.concatenate(batches_x)
+            batches_y = np.concatenate(batches_y)
+            batches_snr = np.concatenate(batches_snr)
+            idx = np.random.permutation(batches_x.shape[0])
+        
+#         batches_x = perturb_batch(batches_x, batches_y)
+        
+            if args.noise > 0:
+                shp0, shp1, shp2 = batches_x.shape
+                noisestd = args.noise/batches_snr[:,np.newaxis, np.newaxis]
+                noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
+                batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
+
+            if args.resample is not None and np.random.random()>0.8:
+                batches_x = resample(batches_x, f=args.resample)
+              
+            batches_x = batches_x[idx]
+            batches_y = batches_y[idx]
+            batches_snr = batches_snr[idx]
+        
+            for i in range(len(generators)):
+                beg = i * train_batch_size
+                end = beg + train_batch_size
+                bx, by, bs = batches_x[beg:end], batches_y[beg:end], batches_snr[beg:end]
+                if False and np.random.random()>0.5:
+                    bx = bx[...,::-1]
+
+                if args.crop_to < 1024:
+                    c_start = np.random.randint(low=0, high=1024-args.crop_to)
+                    bx = bx[...,c_start:c_start+args.crop_to]
+                    assert bx.shape[-1] == args.crop_to
+                yield bx, by
+
+
+def get_val_batches(gen):
+    while True:
+        bx, by = next(gen)
+        if args.crop_to < 1024:
+            c_start = np.random.randint(low=0, high=1024-args.crop_to)
+            bx = bx[...,c_start:c_start+args.crop_to]
+            assert bx.shape[-1] == args.crop_to
+        yield bx, by
