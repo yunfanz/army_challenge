@@ -38,6 +38,8 @@ parser.add_argument('--test_file', type=int, default=-1)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
                     help='an integer for the accumulator')
+parser.add_argument('--num_files', type=int, default=15,
+                    help='total number of files to use for training')
 parser.add_argument('--data_files', type=int, nargs='+',
                     help='an integer for the accumulator')
 parser.add_argument('--data_format', type=str, default="channels_last",
@@ -62,10 +64,14 @@ model_path = args.train_dir+args.classifier_name
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
-for i in range(15):
+load_mods = [CLASSES[mod] for mod in mods]
+for i in range(args.num_files):
     if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
-    data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
+    if not args.sep:
+        data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=load_mods))
+    else:
+        data.append(data_file)
 
 testdata = None
 if args.test_file > 0:
@@ -171,104 +177,44 @@ def googleNet_n(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2
     #out = Average()([out_mid, out_late])
     return out
 
-train_batch_size, number_of_epochs = args.batch_size, args.epochs
 
-
-
-generators = []
-tsteps = 0
-for d in data:
-    generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True))
-    tsteps += d.train_idx.size
-
-tsteps = tsteps//train_batch_size 
-
-
-
-def get_train_batches(generators):
-    while True:
-        batches_x, batches_y, batches_snr = [], [], []
-
-        for gen in generators:
-            batch_x, batch_y, batch_labels = next(gen)
-            batches_x.append(batch_x)
-            batches_y.append(batch_y)
-            #print(batch_labels)
-            batches_snr.append(10**((batch_labels[:,1]).astype(np.float)/10.))
-            
-        batches_x = np.concatenate(batches_x)
-        batches_y = np.concatenate(batches_y)
-        batches_snr = np.concatenate(batches_snr)
-        idx = np.random.permutation(batches_x.shape[0])
-        
-        if args.resample is not None and np.random.random()>0.8:
-            batches_x = resample(batches_x, f=args.resample)
-        if args.perturbp > 0:
-            batches_x = perturb_batch(batches_x, p=args.perturbp) 
-        if args.noise > 0:
-            shp0, shp1, shp2 = batches_x.shape
-            noisestd = args.noise/batches_snr[:,np.newaxis, np.newaxis]
-            noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
-            batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
-                
-
-        batches_x = batches_x[idx]
-        batches_y = batches_y[idx]
-        batches_snr = batches_snr[idx]
-        
-        for i in range(len(generators)):
-            beg = i * train_batch_size
-            end = beg + train_batch_size
-            bx, by, bs = batches_x[beg:end], batches_y[beg:end], batches_snr[beg:end]
-            if False and np.random.random()>0.5:
-                bx = bx[...,::-1]
-            
-            if args.crop_to < 1024:
-                c_start = np.random.randint(low=0, high=1024-args.crop_to)
-                bx = bx[...,c_start:c_start+args.crop_to]
-                assert bx.shape[-1] == args.crop_to
-            yield bx, by
-        
-
-train_batches = get_train_batches(generators)
-
-
-
-def get_val_batches(gen):
-    while True:
-        bx, by = next(gen)
-        if args.crop_to < 1024:
-            c_start = np.random.randint(low=0, high=1024-args.crop_to)
-            bx = bx[...,c_start:c_start+args.crop_to]
-            assert bx.shape[-1] == args.crop_to
-        if args.resample is not None and np.random.random()>0.8:
-            bx = resample(bx, f=args.resample)
-            if args.noise > 0:
-                shp0, shp1, shp2 = bx.shape
-                noisestd = args.noise
-                noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
-                bx += noisestd * np.random.randn(shp0, shp1, shp2)
-        #if args.fft:
-        #    bx = batch_fft(bx)
-        yield bx, by
 
 for m in range(args.m0, args.m0+args.num_models):
     
-    valdata = data[m]
-    val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
-    vsteps = valdata.train_idx.size//train_batch_size
-    val_batches = get_val_batches(val_gen)
-
-
-    generators = []
-    tsteps = 0
-    for i, d in enumerate(data):
-        if i == m:
-            continue
-        generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True, yield_snr=True))
-        tsteps += d.train_idx.size
-    tsteps = tsteps//train_batch_size 
-    train_batches = get_train_batches(generators)
+    if not args.sep:
+        
+        valdata = data[m]
+    
+        val_gen = valdata.batch_iter(valdata.train_idx, args.batch_size, args.epochs, use_shuffle=False)
+        vsteps = valdata.train_idx.size//args.batch_size
+    
+        val_batches = get_val_batches(val_gen)
+    
+    
+        generators = []
+        tsteps = 0
+        for i, d in enumerate(data):
+            if i == m:
+                continue
+            generators.append(d.batch_iter(d.train_idx, args.batch_size, args.epochs, use_shuffle=True, yield_snr=True))
+            tsteps += d.train_idx.size
+        tsteps = tsteps//args.batch_size 
+        train_batches = get_train_batches(generators,noise=args.noise, perturbp=args.perturbp)
+    else:
+        
+        valdata = data[m]
+        valdata = LoadModRecData(valdata, 1., 0., 0., load_mods=load_mods)
+        val_gen = valdata.batch_iter(valdata.train_idx, args.batch_size, args.epochs, use_shuffle=False)
+        vsteps = valdata.train_idx.size//args.batch_size
+    
+        val_batches = get_val_batches(val_gen)
+        
+        data.pop(m)
+        tsteps = len(data) * 12000 * num_classes //args.batch_size 
+        tsteps_per_file = 12000 * num_classes * 1 // args.batch_size
+        train_batches = get_train_batches_small_memory(data, train_batch_size=args.batch_size, number_of_epochs=args.epochs,
+                                                       tsteps_per_file=tsteps_per_file,load_mods=load_mods,
+                                                       noise=args.noise, perturbp=args.perturbp)
 
     in_shp = (2, args.crop_to)
     model_path = args.train_dir+'model{}.h5'.format(m)
@@ -293,7 +239,7 @@ for m in range(args.m0, args.m0+args.num_models):
 
     try:
         history = model.fit_generator(train_batches,
-            nb_epoch=number_of_epochs,
+            nb_epoch=args.epochs,
             steps_per_epoch=tsteps,
             verbose=args.verbose,
             validation_data=val_batches,

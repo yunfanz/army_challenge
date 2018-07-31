@@ -35,8 +35,8 @@ parser.add_argument('--stoppatience', type=int, default=15)
 parser.add_argument('--minlr', type=float, default=0.00001)
 parser.add_argument('--noiseclip', type=float, default=100.)
 parser.add_argument('--test_file', type=int, default=-1)
-parser.add_argument('--num_files', type=int, default=-1,
-                    help='an integer specifying how many files to load at a time, -1 to use all')
+parser.add_argument('--num_files', type=int, default=15,
+                    help='total number of files to use for training')
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
                     help='an integer for the accumulator')
@@ -69,10 +69,10 @@ if not os.path.exists(args.train_dir):
 data = []
 
 load_mods = [CLASSES[mod] for mod in mods]
-for i in range(15):
+for i in range(args.num_files):
     if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
-    if args.num_files < 0:
+    if not args.sep:
         data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=load_mods))
     else:
         data.append(data_file)
@@ -140,26 +140,17 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,4,2
 
 
 
-train_batch_size, number_of_epochs = args.batch_size, args.epochs
-#generators = []
-#tsteps = 0
-#for d in data:
-#    generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True))
-#    tsteps += d.train_idx.size
-#tsteps = tsteps//train_batch_size 
-
-
 
 for m in range(args.m0, args.m0+args.num_models):
     
     
 
-    if args.num_files < 0:
+    if not args.sep:
         
         valdata = data[m]
     
-        val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
-        vsteps = valdata.train_idx.size//train_batch_size
+        val_gen = valdata.batch_iter(valdata.train_idx, args.batch_size, args.epochs, use_shuffle=False)
+        vsteps = valdata.train_idx.size//args.batch_size
     
         val_batches = get_val_batches(val_gen)
     
@@ -169,25 +160,25 @@ for m in range(args.m0, args.m0+args.num_models):
         for i, d in enumerate(data):
             if i == m:
                 continue
-            generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True, yield_snr=True))
+            generators.append(d.batch_iter(d.train_idx, args.batch_size, args.epochs, use_shuffle=True, yield_snr=True))
             tsteps += d.train_idx.size
-        tsteps = tsteps//train_batch_size 
-        train_batches = get_train_batches(generators)
+        tsteps = tsteps//args.batch_size 
+        train_batches = get_train_batches(generators,noise=args.noise, perturbp=args.perturbp)
     else:
         
         valdata = data[m]
         valdata = LoadModRecData(valdata, 1., 0., 0., load_mods=load_mods)
-    
-        val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
-        vsteps = valdata.train_idx.size//train_batch_size
+        val_gen = valdata.batch_iter(valdata.train_idx, args.batch_size, args.epochs, use_shuffle=False)
+        vsteps = valdata.train_idx.size//args.batch_size
     
         val_batches = get_val_batches(val_gen)
         
-        
-        tsteps = len(data) * 12000 * num_classes //train_batch_size 
-        tsteps_per_file = 12000 * num_classes * args.num_files // train_batch_size
-        train_batches = get_train_batches_small_memory(data, num_files=args.num_files, 
-                                                       tsteps_per_file=tsteps_per_file,val_index=m,load_mods=load_mods)
+        data.pop(m)
+        tsteps = len(data) * 12000 * num_classes //args.batch_size 
+        tsteps_per_file = 12000 * num_classes * 1 // args.batch_size
+        train_batches = get_train_batches_small_memory(data, train_batch_size=args.batch_size, number_of_epochs=args.epochs,
+                                                       tsteps_per_file=tsteps_per_file,load_mods=load_mods,
+                                                       noise=args.noise, perturbp=args.perturbp)
         
     in_shp = (2, args.crop_to)
     model_path = args.train_dir+'model{}.h5'.format(m)
@@ -206,7 +197,7 @@ for m in range(args.m0, args.m0+args.num_models):
 
     try:
         history = model.fit_generator(train_batches,
-            nb_epoch=number_of_epochs,
+            nb_epoch=args.epochs,
             steps_per_epoch=tsteps,
             verbose=args.verbose,
             validation_data=val_batches,
