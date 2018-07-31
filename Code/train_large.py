@@ -29,6 +29,7 @@ parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
+parser.add_argument('--perturbp', type=float, default=-1.)
 parser.add_argument('--val_file', type=int, default=13)
 parser.add_argument('--lrpatience', type=int, default=8)
 parser.add_argument('--stoppatience', type=int, default=15)
@@ -72,7 +73,7 @@ load_mods = [CLASSES[mod] for mod in mods]
 for i in range(2):
     if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
-    if args.num_files < 0:
+    if not args.sep:
         data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=load_mods))
     else:
         data.append(data_file)
@@ -151,7 +152,7 @@ for m in range(args.m0, args.m0+args.num_models):
     
     
 
-    if args.num_files < 0:
+    if not args.sep:
         
         valdata = data[m]
     
@@ -169,7 +170,7 @@ for m in range(args.m0, args.m0+args.num_models):
             generators.append(d.batch_iter(d.train_idx, train_batch_size, number_of_epochs, use_shuffle=True, yield_snr=True))
             tsteps += d.train_idx.size
         tsteps = tsteps//train_batch_size 
-        train_batches = get_train_batches(generators, train_batch_size, args.noise,perturbp = False)
+        train_batches = get_train_batches(generators, train_batch_size, args.noise,perturbp = args.perturbp)
     else:
         
         valdata = data[m]
