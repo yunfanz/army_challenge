@@ -113,7 +113,7 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False, t
     return output
 
 def out_tower(x, dr=0.5, reg=-1):
-    output = x#Dropout(dr)(x)
+    output = Dropout(dr)(x)
     logits    = Dense(num_classes)(output)
     if reg > 0:
         #logits = reg * Activation('tanh')(logits)
@@ -143,8 +143,7 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     
     x = Flatten()(x)
     x = Dense(nhidden)(x)
-    x = Dropout(0.5)(x)
-    #x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
+    x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
     out = out_tower(x, dr=0.5, reg=args.confireg)
     #out = Average()([out_mid, out_late])
     return out, x
@@ -164,6 +163,12 @@ def discriminate(x, nhidden=128, dr=0.5):
     d_V = Dense(2,activation='softmax')(H)
     return d_V
 
+def center_loss(y_true, emb_pred, nclasses):
+    '''Just another crossentropy'''
+    nrof_classes = y_true.get_shape()[1]
+    y_pred /= y_pred.sum(axis=-1, keepdims=True)
+    cce = T.nnet.categorical_crossentropy(y_pred, y_true)
+    return cce
 
 train_batch_size = args.batch_size
 
@@ -250,36 +255,12 @@ for m in range(args.m0, args.m0+args.num_models):
     
     model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
 
-    d_in = Input(shape=(args.nhidden,))
-    d_V = discriminate(d_in, nhidden=args.nhidden)
-    discriminator = Model(d_in, d_V)
-    discriminator.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.dislr))
-
-    make_trainable(discriminator, False)
-
-    # Build stacked GAN model
-    emb_model = Model(inputs=input_img, outputs=emb)  #not compiled??
-    gan_input = Input(shape=in_shp)
-    EMB = emb_model(gan_input)
-    gan_V = discriminator(EMB)
-    GAN = Model(gan_input, gan_V)
-    GAN.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.ganlr))
-
-
-    d_loss = 0; g_loss = 0; c_loss = 0 
-    losses = {"d":[], "g":[], "c":[]}
     for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
         try:
             # Make generative images
             bx, by = next(train_batches)
         except(StopIteration):
             break
-        if step < args.startdraw:
-            bx_ = targetdata2[np.random.randint(0, high=targetdata2.shape[0], size=args.batch_size)]   
-        else:
-            bx_ = targetdata[np.random.randint(0, high=targetdata.shape[0], size=args.batch_size)]
-        if step == args.startdraw:
-            print('Start drawing from test set 1')
         if step % 100 == 0:
             vx, vy = next(val_batches)
             v_loss = model.test_on_batch(vx, vy)
@@ -290,41 +271,6 @@ for m in range(args.m0, args.m0+args.num_models):
         c_loss = model.train_on_batch(bx, by)
         losses["c"].append(c_loss)
         
-        #make_trainable(discriminator,True)
-        emb = emb_model.predict(bx)
-        emb_ = emb_model.predict(bx_)
-        # Train discriminator on generated images
-        domain_X = np.concatenate((emb, emb_), axis=0)
-        domain_y = np.zeros([2*args.batch_size,2])
-        domain_y[0:args.batch_size,1] = 1
-        domain_y[args.batch_size:,0] = 1 #0 for target domain
-        if c_loss > 1.2 : #warm up classifier
-            d_loss  = 0.
-        else:
-            d_loss  = discriminator.train_on_batch(domain_X,domain_y)
-        losses["d"].append(d_loss)
-        
-        #make_trainable(discriminator,False)
-        y2 = np.zeros([args.batch_size,2])
-        y2[:,1] = 1  #1 for target domain
-        if c_loss > 1.05:
-            g_loss = GAN.test_on_batch(bx_, y2 )
-        else:
-            g_loss = GAN.train_on_batch(bx_, y2 )
-        losses["g"].append(g_loss)
-
-        if step>3000 and step % 100 ==0: # one epoch of test data
-            epochc_loss = np.mean(losses["c"][-100:])
-            meanc_loss = np.mean(losses["c"][-800:])
-            lr = K.eval(model.optimizer.lr)
-            dislr = K.eval(discriminator.optimizer.lr)
-            ganlr = K.eval(GAN.optimizer.lr)
-            if meanc_loss <= epochc_loss and (lr > 1.e-5 and dislr > 1.e-5 and ganlr > 1.e-5):
-                K.set_value(model.optimizer.lr, 0.1*lr)
-                K.set_value(discriminator.optimizer.lr, 0.1*dislr)
-                K.set_value(GAN.optimizer.lr, 0.1*ganlr)
-
-
 
 
     model_path = args.train_dir+'model{}.h5'.format(m)

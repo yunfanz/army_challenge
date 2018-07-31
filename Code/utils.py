@@ -204,17 +204,19 @@ def get_periodogram(cdata, nfft=512, remove_DC=False):
 
 
 
-def perturb_batch(batch, labels):
+def perturb_batch(batch, labels=None, p=0.3):
     # as of now perturbs all mods the same way
     perturb_prob = np.random.uniform(0,1,batch.shape[0])
-    p = 0.3
     for i in np.where(perturb_prob < p)[0]:
         ##### perturb signal
         ### with half the probability take every k-th element and resample to right size
         sig  = batch[i][0] + 1j * batch[i][1]
         if perturb_prob[i] < p/2:
-            k = np.random.choice([2,3,4,5,6]) 
-            sig = signal.resample(sig[::4], 1024)
+            k = 2#np.random.choice([2,3,4,5,6]) 
+            sig = signal.resample(sig[::k], 1024)
+        elif perturb_prob[i] < 3*p/4:
+            k = np.random.choice([3,4]) 
+            sig = signal.resample(sig[::k], 1024)
         ### with the other half take some sub sample of the signal and resample to right shape
         else:
             # get the random size of the sub sample

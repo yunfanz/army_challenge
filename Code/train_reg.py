@@ -24,7 +24,8 @@ parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--fft', type=bool, default=False)
-parser.add_argument('--confireg', type=float, default=5.)
+parser.add_argument('--perturbp', type=float, default=-1.)
+parser.add_argument('--confireg', type=float, default=3.5)
 parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
@@ -51,7 +52,8 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
  'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
  'QAM32', 'QAM64', 'QPSK']
 
-all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), np.array([4,5]), np.array([1,9])]
+all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), 
+            np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3])]
 mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.data_dir
@@ -127,8 +129,17 @@ def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1
     #out = Average()([out_mid, out_late])
     return out
 
-def googleNet_n(x,xft=None, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
+def tf_fft(x, norm=True, shift=True, N=1024):
+    x_complex = tf.complex(real=x[:,0,:], imag=x[:,1,:])
+    x_complex = tf.spectral.fft(x_complex)
+    x_complex = tf.concat([x_complex[:,N//2:][::-1], x_complex[:,:N//2]], axis=1)
+    x = tf.stack([tf.real(x_complex), tf.imag(x_complex)], axis=1)
+    if norm:
+        x /= tf.reduce_mean(tf.abs(x))
+    return x
 
+def googleNet_n(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
+    xft = Lambda(lambda v: tf_fft(v))(x)
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
     x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
@@ -136,15 +147,15 @@ def googleNet_n(x,xft=None, data_format='channels_last', num_classes=24,num_laye
         x = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
 
-    if xft is not None:
-        xft = Reshape(in_shp + (1,), input_shape=in_shp)(xft) 
-        xft = Conv2D(filters=64*features[0], kernel_size=[2,4], strides=[2,2], data_format=data_format, padding='same', activation='relu')(xft)
-        xft = MaxPooling2D([1, 3], strides=[1,2], padding='same')(xft)
-        for dep in range(num_layers[0]):
-            xft = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(xft)
-        xft = MaxPooling2D([1,3], strides=[1,2], padding='same')(xft)
-        x = keras.layers.concatenate([x, xft], axis = 3)
-
+    xft = Reshape(in_shp + (1,), input_shape=in_shp)(xft) 
+    xft = Conv2D(filters=64*features[0], kernel_size=[2,4], strides=[2,2], data_format=data_format, padding='same', activation='relu')(xft)
+    xft = MaxPooling2D([1, 3], strides=[1,2], padding='same')(xft)
+    for dep in range(num_layers[0]):
+        xft = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(xft)
+    xft = MaxPooling2D([1,3], strides=[1,2], padding='same')(xft)
+    print(x.get_shape(), xft.get_shape())
+    x = keras.layers.concatenate([x, xft], axis = 3)
+    print(x.get_shape())
     for dep in range(num_layers[1]):
         x = inception(x, height=2, fs=np.array([32,32,32,32,32])*features[2], tw_tower=True)
     x = MaxPooling2D([1,3], strides=2, padding='same')(x)
@@ -192,15 +203,14 @@ def get_train_batches(generators):
         
         if args.resample is not None and np.random.random()>0.8:
             batches_x = resample(batches_x, f=args.resample)
-        
+        if args.perturbp > 0:
+            batches_x = perturb_batch(batches_x, p=args.perturbp) 
         if args.noise > 0:
             shp0, shp1, shp2 = batches_x.shape
             noisestd = args.noise/batches_snr[:,np.newaxis, np.newaxis]
             noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
             batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
                 
-        if args.fft:
-            batches_x = batch_fft(batches_x)
 
         batches_x = batches_x[idx]
         batches_y = batches_y[idx]
@@ -238,17 +248,15 @@ def get_val_batches(gen):
                 noisestd = args.noise
                 noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
                 bx += noisestd * np.random.randn(shp0, shp1, shp2)
-        if args.fft:
-            bx = batch_fft(bx)
+        #if args.fft:
+        #    bx = batch_fft(bx)
         yield bx, by
 
 for m in range(args.m0, args.m0+args.num_models):
     
     valdata = data[m]
-    
     val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, number_of_epochs, use_shuffle=False)
     vsteps = valdata.train_idx.size//train_batch_size
-    
     val_batches = get_val_batches(val_gen)
 
 
@@ -261,22 +269,24 @@ for m in range(args.m0, args.m0+args.num_models):
         tsteps += d.train_idx.size
     tsteps = tsteps//train_batch_size 
     train_batches = get_train_batches(generators)
-    val_batches = get_val_batches(val_gen)
 
     in_shp = (2, args.crop_to)
-    input_img = Input(shape=in_shp)
-    out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-    model = Model(inputs=input_img, outputs=out)
     model_path = args.train_dir+'model{}.h5'.format(m)
     if args.ngpu > 1:
         with tf.device("/cpu:0"):
             input_img = Input(shape=in_shp)
-            out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+            if args.fft:
+                out = googleNet_n(input_img,data_format='channels_last', num_classes=num_classes)
+            else:
+                out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
             model = Model(inputs=input_img, outputs=out)
         model = multi_gpu_model(model, gpus=args.ngpu)
     else:
         input_img = Input(shape=in_shp)
-        out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+        if args.fft:
+            out = googleNet_n(input_img,data_format='channels_last', num_classes=num_classes)
+        else:
+            out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
         model = Model(inputs=input_img, outputs=out)
     model.compile(loss='categorical_crossentropy', optimizer='adam')
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
