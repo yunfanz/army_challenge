@@ -70,7 +70,7 @@ if not os.path.exists(args.train_dir):
 data = []
 
 load_mods = [CLASSES[mod] for mod in mods]
-for i in range(2):
+for i in range(args.num_files):
     if i in [ args.test_file]: continue
     data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     if not args.sep:
