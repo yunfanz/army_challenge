@@ -113,7 +113,7 @@ def inception(input_img, height = 1, fs=[64,64,64,64,64], with_residual=False, t
     return output
 
 def out_tower(x, dr=0.5, reg=-1):
-    output = x#Dropout(dr)(x)
+    output = Dropout(dr)(x)
     logits    = Dense(num_classes)(output)
     if reg > 0:
         #logits = reg * Activation('tanh')(logits)
@@ -143,9 +143,9 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     
     x = Flatten()(x)
     x = Dense(nhidden)(x)
-    x = Dropout(0.5)(x)
-    #x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
-    out = out_tower(x, dr=0.5, reg=args.confireg)
+    #x = Dropout(0.5)(x)
+    x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
+    out = out_tower(x, dr=0.1, reg=args.confireg)
     #out = Average()([out_mid, out_late])
     return out, x
 
@@ -298,7 +298,7 @@ for m in range(args.m0, args.m0+args.num_models):
         domain_y = np.zeros([2*args.batch_size,2])
         domain_y[0:args.batch_size,1] = 1
         domain_y[args.batch_size:,0] = 1 #0 for target domain
-        if c_loss > 1.2 : #warm up classifier
+        if c_loss > 1.0 : #warm up classifier
             d_loss  = 0.
         else:
             d_loss  = discriminator.train_on_batch(domain_X,domain_y)
@@ -307,7 +307,7 @@ for m in range(args.m0, args.m0+args.num_models):
         #make_trainable(discriminator,False)
         y2 = np.zeros([args.batch_size,2])
         y2[:,1] = 1  #1 for target domain
-        if c_loss > 1.05:
+        if c_loss > 0.9:
             g_loss = GAN.test_on_batch(bx_, y2 )
         else:
             g_loss = GAN.train_on_batch(bx_, y2 )
