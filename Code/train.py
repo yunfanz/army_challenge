@@ -173,11 +173,11 @@ for m in range(args.m0, args.m0+args.num_models):
         vsteps = valdata.train_idx.size//args.batch_size
     
         val_batches = get_val_batches(val_gen)
-        
-        data.pop(m)
-        tsteps = len(data) * 12000 * num_classes //args.batch_size 
+        train_data = data.copy() 
+        train_data.pop(m)
+        tsteps = len(train_data) * 12000 * num_classes //args.batch_size 
         tsteps_per_file = 12000 * num_classes * 1 // args.batch_size
-        train_batches = get_train_batches_small_memory(data, train_batch_size=args.batch_size, number_of_epochs=args.epochs,
+        train_batches = get_train_batches_small_memory(train_data, train_batch_size=args.batch_size, number_of_epochs=args.epochs,
                                                        tsteps_per_file=tsteps_per_file,load_mods=load_mods,
                                                        noise=args.noise, perturbp=args.perturbp)
         
