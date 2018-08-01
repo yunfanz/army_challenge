@@ -121,6 +121,8 @@ def ens_predictions(paths, test_X):
         p = Pool(args.ngpu, _init, (idQueue,))
         #_ = p.map(_print_id, np.arange(20))
         preds = p.map(partial(_get_prediction, test_X=test_X), paths)
+        p.close()
+        p.join()
     else:
         preds = []
         for mp in paths:
