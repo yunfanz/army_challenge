@@ -30,7 +30,7 @@ import random
 import json, os, sys
 import datetime
 import matplotlib.pyplot as plt
-
+from numpy.fft import *
 TAG = '[Data Loader] - '
 
 
@@ -53,7 +53,7 @@ class LoadModRecData:
 
     '''
 
-    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None, load_snrs=None, num_samples_per_key=None, verbose=True):
+    def __init__(self, datafile, trainRatio, validateRatio, testRatio, load_mods=None, load_snrs=None, num_samples_per_key=None, verbose=True, spectrum=False):
         ''' init
 
             .. note::
@@ -66,15 +66,18 @@ class LoadModRecData:
         if sys.version_info >= (3, 0):
             self.python_version_3 = True
         self.verbose = verbose
+        
+        if not spectrum:
+            print(TAG + "Loading Datafile, ", datafile, "(time series)")
+        else:
+            print(TAG + "Loading Datafile, ", datafile, "(spectrum)")
 
-        print(TAG + "Loading Datafile, ", datafile)
-
-        self.signalData, self.oneHotLabels, self.signalLabels, self.snrLabels = self.loadData(datafile, load_mods=load_mods, load_snrs=load_snrs, num_samples_per_key=num_samples_per_key)
+        self.signalData, self.oneHotLabels, self.signalLabels, self.snrLabels = self.loadData(datafile, load_mods=load_mods, load_snrs=load_snrs, num_samples_per_key=num_samples_per_key, spectrum=spectrum)
         self.train_idx, self.val_idx, self.test_idx = self.split(trainRatio, validateRatio, testRatio)
         if self.verbose:
             print(TAG + "Done.\n")
 
-    def loadData(self, fname, load_mods, load_snrs, num_samples_per_key):
+    def loadData(self, fname, load_mods, load_snrs, num_samples_per_key,spectrum):
         '''  Load dataset from pickled file '''
         
         
@@ -159,6 +162,15 @@ class LoadModRecData:
         oneHotLabels = np.asarray(oneHotLabels)
         signalLabels = np.asarray(signalLabels)
         snrLabels = np.asarray(snrLabels)
+        
+        if spectrum:
+            for i,sig in enumerate(signalData):
+                sig = sig[0] + 1j * sig[1]
+                sig = fftshift(fft(sig))
+                signalData[i][0] = sig.real
+                signalData[i][1] = sig.imag
+                
+        
 
         # Shuffle data
         if self.verbose:
