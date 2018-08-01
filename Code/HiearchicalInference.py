@@ -12,6 +12,7 @@ from keras.models import Model, load_model
 from multiprocessing import Manager, Process, Queue, Pool
 from functools import partial
 import argparse
+from time import sleep
 
 parser = argparse.ArgumentParser(description='Process')
 parser.add_argument('--train_dir', type=str, default='./log/model_9/',
@@ -98,11 +99,16 @@ def _init(queue):
 def _get_prediction(path, test_X):
     global idx
     print(idx, "Model: ", path)
-    with tf.device('/gpu:{}'.format(idx)):
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(idx)
+    with tf.device('/gpu:{}'.format(0)):
         model = load_model(path)
         pred = model.predict(test_X)
     return pred
-
+def _print_id(num):
+    global idx
+    print(idx, num)
+    sleep(5)
 def ens_predictions(paths, test_X):
     if paths is None:
         return None
@@ -113,6 +119,7 @@ def ens_predictions(paths, test_X):
         for i in ids:
             idQueue.put(i)
         p = Pool(args.ngpu, _init, (idQueue,))
+        #_ = p.map(_print_id, np.arange(20))
         preds = p.map(partial(_get_prediction, test_X=test_X), paths)
     else:
         preds = []
