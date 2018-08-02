@@ -26,8 +26,8 @@ parser.add_argument('--nhidden', type=int, default=128)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--confireg', type=float, default=-1.)
-parser.add_argument('--startdraw', type=int, default=40000,
-                     help="step number to start drawing from test set 1")
+parser.add_argument('--warmup', type=int, default=0,
+                     help="number of epochs to train on train set only")
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--stoppatience', type=int, default=8)
 parser.add_argument('--noise', type=float, default=-1.)
@@ -55,7 +55,7 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
  'QAM32', 'QAM64', 'QPSK']
 
 all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), 
-            np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3])]
+            np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3]), np.array([0,3,6,7,20,21,22])]
 mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.test_dir
@@ -173,7 +173,7 @@ for d in data:
 tsteps = tsteps//train_batch_size 
 
 
-def get_train_batches(generators):
+def get_train_batches(generators, add_test_data=True):
     while True:
         batches_x, batches_y, batches_snr = [], [], []
 
@@ -206,19 +206,19 @@ def get_train_batches(generators):
             beg = i * train_batch_size
             end = beg + train_batch_size
             bx, by, bs = batches_x[beg:end], batches_y[beg:end], batches_snr[beg:end]
-
-            # Mix in the test data
-            test_inds = np.random.randint(0, high=targetdata.shape[0], size=test_batch_size)
-            bx_ = targetdata[test_inds]
-            by_ = targetY[test_inds]
-            byonehot_ = np.stack([to_categorical(by_[i], num_classes=num_classes) for i in range(by_.size)], axis=0)
-            bx = np.concatenate([bx,bx_], axis=0)
-            by = np.concatenate([by,byonehot_], axis=0)
+            if add_test_data:
+                # Mix in the test data
+                test_inds = np.random.randint(0, high=targetdata.shape[0], size=test_batch_size)
+                bx_ = targetdata[test_inds]
+                by_ = targetY[test_inds]
+                byonehot_ = np.stack([to_categorical(by_[i], num_classes=num_classes) for i in range(by_.size)], axis=0)
+                bx = np.concatenate([bx,bx_], axis=0)
+                by = np.concatenate([by,byonehot_], axis=0)
             #print(bx.shape, by.shape)
             yield bx, by
         
 
-train_batches = get_train_batches(generators)
+
 
 def get_val_batches(gen):
     while True:
@@ -242,8 +242,6 @@ for m in range(args.m0, args.m0+args.num_models):
         tsteps += d.train_idx.size
     tsteps = tsteps//train_batch_size 
     train_batches = get_train_batches(generators)
-
-    
 
     # in_shp = (2, args.crop_to)
     # input_img = Input(shape=in_shp); input_img_ = Input(shape=in_shp)
@@ -284,7 +282,18 @@ for m in range(args.m0, args.m0+args.num_models):
     
     model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
-
+    if args.warmup > 0:
+        train_batches_warmup = get_train_batches(generators, add_test_data=False)
+        try:
+            history = model.fit_generator(train_batches_warmup,
+                nb_epoch=args.warmup,
+                steps_per_epoch=tsteps,
+                verbose=args.verbose,
+                validation_data=val_batches,
+                validation_steps=vsteps
+                ) 
+        except(StopIteration):
+            pass
     try:
         history = model.fit_generator(train_batches,
             nb_epoch=args.epochs,
