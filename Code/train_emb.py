@@ -11,7 +11,7 @@ import keras.backend as K
 from keras.optimizers import Adam
 from keras.layers import *
 from keras.models import Model
-from keras.utils import plot_model, multi_gpu_model
+from keras.utils import plot_model, multi_gpu_model, to_categorical
 import argparse
 
 parser = argparse.ArgumentParser(description='Process')
@@ -25,9 +25,11 @@ parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--nhidden', type=int, default=128)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
+parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--startdraw', type=int, default=40000,
                      help="step number to start drawing from test set 1")
 parser.add_argument('--lr', type=float, default=0.001)
+parser.add_argument('--stoppatience', type=int, default=8)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
@@ -61,7 +63,7 @@ model_path = args.train_dir+args.classifier_name
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
-for i in range(15):
+for i in range(2):
     if i in [ args.test_file]: continue
     data_file = args.data_dir + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
@@ -208,8 +210,10 @@ def get_train_batches(generators):
             test_inds = np.random.randint(0, high=targetdata.shape[0], size=test_batch_size)
             bx_ = targetdata[test_inds]
             by_ = targetY[test_inds]
+            byonehot_ = np.stack([to_categorical(by_[i], num_classes=num_classes) for i in range(by_.size)], axis=0)
             bx = np.concatenate([bx,bx_], axis=0)
-            by = np.concatenate([by,by_], axis=0)
+            by = np.concatenate([by,byonehot_], axis=0)
+            #print(bx.shape, by.shape)
             yield bx, by
         
 
@@ -218,17 +222,13 @@ train_batches = get_train_batches(generators)
 def get_val_batches(gen):
     while True:
         bx, by = next(gen)
-        if args.crop_to < 1024:
-            c_start = np.random.randint(low=0, high=1024-args.crop_to)
-            bx = bx[...,c_start:c_start+args.crop_to]
-            assert bx.shape[-1] == args.crop_to
         yield bx, by
 
 for m in range(args.m0, args.m0+args.num_models):
     
     valdata = data[m]
-    val_gen = valdata.batch_iter(valdata.train_idx, train_batch_size, args.epochs, use_shuffle=False)
-    vsteps = valdata.train_idx.size//train_batch_size
+    val_gen = valdata.batch_iter(valdata.train_idx, args.batch_size, args.epochs, use_shuffle=False)
+    vsteps = valdata.train_idx.size//args.batch_size
     val_batches = get_val_batches(val_gen)
 
 
@@ -249,7 +249,6 @@ for m in range(args.m0, args.m0+args.num_models):
     # out, emb = googleNet(input_img,nhidden=args.nhidden,data_format='channels_last', num_classes=num_classes)
     # model = Model(inputs=input_img, outputs=out)
     
-    # model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
 
     # for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
     #     try:
@@ -269,6 +268,7 @@ for m in range(args.m0, args.m0+args.num_models):
         
 
 
+    in_shp = (2, 1024)
     model_path = args.train_dir+'model{}.h5'.format(m)
     if args.ngpu > 1:
         with tf.device("/cpu:0"):
@@ -281,6 +281,7 @@ for m in range(args.m0, args.m0+args.num_models):
         out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
         model = Model(inputs=input_img, outputs=out)
     
+    model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
 
     try:
@@ -291,7 +292,7 @@ for m in range(args.m0, args.m0+args.num_models):
             validation_data=val_batches,
             validation_steps=vsteps,
             callbacks = [
-              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=True, save_best_only=True, mode='auto'),
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
               #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
               keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.stoppatience,verbose=0, mode='auto'),
 

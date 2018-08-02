@@ -54,7 +54,7 @@ CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK
  'QAM32', 'QAM64', 'QPSK']
 
 all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), 
-            np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3])]
+            np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3]), np.array([0,3,6,7,20,21,22])]
 mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.test_dir
