@@ -31,6 +31,7 @@ parser.add_argument('--startdraw', type=int, default=40000,
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--stoppatience', type=int, default=8)
 parser.add_argument('--noise', type=float, default=-1.)
+parser.add_argument('--noiseclip', type=float, default=100.)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
