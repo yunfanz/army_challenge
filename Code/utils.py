@@ -16,11 +16,16 @@ def get_mod_group(csv_file, con_arr, thresh=0.5, return_class=False):
     pred_arr = np.array(pred[cols])
     pred_mods = np.argmax(pred_arr, axis=1)
     pred_probs = np.amax(pred_arr, axis=1)
-    data = np.array([(q in con_arr) and (pred_probs[i]>thresh) for i, q in enumerate(pred_mods)]).nonzero()[0]
+    inds = np.array([(q in con_arr) and (pred_probs[i]>thresh) for i, q in enumerate(pred_mods)]).nonzero()[0]
     if not return_class:
-        return data
+        return inds
     else:
-        return data, pred_mods[data]
+        global_label = pred_mods[inds]
+        con_index = {}
+        for i, v in enumerate(con_arr):
+            con_index[v] = i
+        mod_group_label = np.asarray([con_index[lab] for lab in global_label])
+        return inds, mod_group_label
 
 
 def make_trainable(net, val):
