@@ -63,7 +63,7 @@ model_path = args.train_dir+args.classifier_name
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
-for i in range(2):
+for i in range(15):
     if i in [ args.test_file]: continue
     data_file = args.data_dir + "training_data_chunk_" + str(i) + ".pkl"
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
@@ -146,11 +146,11 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
         x = inception(x, height=1,fs=np.array([32,32,32,32,32])*features[4])
     
     x = Flatten()(x)
-    x = Dense(nhidden)(x)
-    x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
+    #x = Dense(nhidden)(x)
+    #x = Lambda(lambda  x: K.l2_normalize(x), name='l2_normalize')(x)
     out = out_tower(x, dr=0.5, reg=args.confireg)
     #out = Average()([out_mid, out_late])
-    return out, x
+    return out#, x
 
 
 # def center_loss(y_true, emb_pred, nclasses):
