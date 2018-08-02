@@ -37,6 +37,8 @@ parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
 parser.add_argument('--test_file', type=int, default=-1)
 parser.add_argument('--mod_group', type=int, default=4)
+parser.add_argument('--sep', type=bool, default=False)
+parser.add_argument('--num_files', type=int, default=15)
 parser.add_argument('--test_dir', type=str, default='/datax/yzhang/test_data/')
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
                     help='an integer for the accumulator')
@@ -60,19 +62,22 @@ mods = all_mods[args.mod_group]
 num_classes = mods.size
 BASEDIR = args.test_dir
 model_path = args.train_dir+args.classifier_name
-
+modulations = [CLASSES[mod] for mod in mods]
 if not os.path.exists(args.train_dir):
      os.makedirs(args.train_dir)
 data = []
-for i in range(15):
+for i in range(args.num_files):
     if i in [ args.test_file]: continue
     data_file = args.data_dir + "training_data_chunk_" + str(i) + ".pkl"
-    data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
+    if args.sep:
+        data.append(data_file)
+    else:
+        data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=modulations))
 
 testdata = None
 if args.test_file > 0:
     data_file = args.data_dir + "training_data_chunk_" + str(args.test_file) + ".pkl"
-    testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
+    testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=modulations)
 
 #print('!!!', mods)
 target_file = BASEDIR+"Test_Set_1_Army_Signal_Challenge.pkl"
@@ -164,13 +169,13 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
 train_batch_size = int(args.batch_size * args.tt_split)
 test_batch_size = args.batch_size - train_batch_size
 
-generators = []
-tsteps = 0
-for d in data:
-    generators.append(d.batch_iter(d.train_idx, train_batch_size, args.epochs, use_shuffle=True))
-    tsteps += d.train_idx.size
+#generators = []
+#tsteps = 0
+#for d in data:
+#    generators.append(d.batch_iter(d.train_idx, train_batch_size, args.epochs, use_shuffle=True))
+#    tsteps += d.train_idx.size
 
-tsteps = tsteps//train_batch_size 
+#tsteps = tsteps//train_batch_size 
 
 
 def get_train_batches(generators, add_test_data=True):
@@ -216,7 +221,20 @@ def get_train_batches(generators, add_test_data=True):
                 by = np.concatenate([by,byonehot_], axis=0)
             #print(bx.shape, by.shape)
             yield bx, by
+
+def get_train_batches_small_memory(data_files, mods,tsteps_per_file,epochs, add_test_data=True):
+    while True:
+        np.random.seed()
+        i = np.random.randint(len(data_files))
+        d = data_files[i]
+        d = LoadModRecData(d, 1., 0., 0., load_mods=mods, verbose=False)
+        generators = [d.batch_iter(d.train_idx, train_batch_size, args.epochs, use_shuffle=True, yield_snr=True)]
+        train_batches = get_train_batches(generators, add_test_data)
+        for j in range(tsteps_per_file):
+            yield next(train_batches)
         
+        
+    
 
 
 
@@ -226,22 +244,33 @@ def get_val_batches(gen):
         yield bx, by
 
 for m in range(args.m0, args.m0+args.num_models):
-    
+    np.random.seed()
     valdata = data[m]
+    if args.sep:
+        valdata = LoadModRecData(valdata, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods])
     val_gen = valdata.batch_iter(valdata.train_idx, args.batch_size, args.epochs, use_shuffle=False)
     vsteps = valdata.train_idx.size//args.batch_size
     val_batches = get_val_batches(val_gen)
 
+    if  args.sep:
+        train_data = data.copy()
+        train_data.pop(m)
+        tsteps_per_file = 12000 * num_classes // args.batch_size
+        tsteps = len(train_data) * 12000 * num_classes //args.batch_size
+        train_batches = get_train_batches_small_memory(data, modulations, tsteps_per_file,args.epochs,add_test_data=True)
+        if args.warmup>0:
+            train_batches_warmup = get_train_batches_small_memory(data, modulations, tsteps_per_file,args.warmup,add_test_data=False)
+    else:    
 
-    generators = []
-    tsteps = 0
-    for i, d in enumerate(data):
-        if i == m:
-            continue
-        generators.append(d.batch_iter(d.train_idx, train_batch_size, args.epochs, use_shuffle=True, yield_snr=True))
-        tsteps += d.train_idx.size
-    tsteps = tsteps//train_batch_size 
-    train_batches = get_train_batches(generators)
+        generators = []
+        tsteps = 0
+        for i, d in enumerate(data):
+            if i == m:
+                continue
+            generators.append(d.batch_iter(d.train_idx, train_batch_size, args.epochs, use_shuffle=True, yield_snr=True))
+            tsteps += d.train_idx.size
+        tsteps = tsteps//train_batch_size 
+        train_batches = get_train_batches(generators)
 
     # in_shp = (2, args.crop_to)
     # input_img = Input(shape=in_shp); input_img_ = Input(shape=in_shp)
@@ -283,7 +312,8 @@ for m in range(args.m0, args.m0+args.num_models):
     model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
     if args.warmup > 0:
-        train_batches_warmup = get_train_batches(generators, add_test_data=False)
+        if not args.sep:
+            train_batches_warmup = get_train_batches(generators, add_test_data=False)
         try:
             history = model.fit_generator(train_batches_warmup,
                 nb_epoch=args.warmup,
