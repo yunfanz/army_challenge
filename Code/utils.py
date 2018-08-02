@@ -6,7 +6,7 @@ import numpy as np
 from scipy import interpolate,signal
 import pandas as pd
 
-def get_mod_group(csv_file, con_arr, thresh=0.5):
+def get_mod_group(csv_file, con_arr, thresh=0.5, return_class=False):
     """return 0 indexed instances that are within mods
        Currently requires columns in alphabeticall order in csv"""
     #print('Getting ', mods)
@@ -16,7 +16,11 @@ def get_mod_group(csv_file, con_arr, thresh=0.5):
     pred_arr = np.array(pred[cols])
     pred_mods = np.argmax(pred_arr, axis=1)
     pred_probs = np.amax(pred_arr, axis=1)
-    return np.array([(q in con_arr) and (pred_probs[i]>thresh) for i, q in enumerate(pred_mods)]).nonzero()[0]
+    data = np.array([(q in con_arr) and (pred_probs[i]>thresh) for i, q in enumerate(pred_mods)]).nonzero()[0]
+    if not return_class:
+        return data
+    else:
+        return data, pred_mods[data]
 
 
 def make_trainable(net, val):

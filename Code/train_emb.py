@@ -19,6 +19,8 @@ parser.add_argument('--train_dir', type=str, default='/datax/yzhang/models/',
                     help='an integer for the accumulator')
 parser.add_argument('--epochs', type=int, default=300)
 parser.add_argument('--batch_size', type=int, default=256)
+parser.add_argument('--tt_split', type=float, default=0.8, help="fraction of train data vs labeled test data")
+parser.add_argument('--test_thresh', type=float, default=0.99)
 parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--nhidden', type=int, default=128)
 parser.add_argument('--resample', type=int, default=None)
@@ -26,11 +28,7 @@ parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--startdraw', type=int, default=40000,
                      help="step number to start drawing from test set 1")
 parser.add_argument('--lr', type=float, default=0.001)
-parser.add_argument('--dislr', type=float, default=0.0005)
-parser.add_argument('--ganlr', type=float, default=0.0002)
 parser.add_argument('--noise', type=float, default=-1.)
-parser.add_argument('--confireg', type=float, default=-1.)
-parser.add_argument('--crop_to', type=int, default=1024)
 parser.add_argument('--num_models', type=int, default=1)
 parser.add_argument('--verbose', type=int, default=2)
 parser.add_argument('--val_file', type=int, default=13)
@@ -81,12 +79,16 @@ target_pred2 = BASEDIR+"TestSet2Predictions.csv"
 f = open(target_file, 'rb')
 targetdata1 = pickle.load(f, encoding='latin1')
 targetdata1 = np.stack([targetdata1[i+1] for i in range(len(targetdata1.keys()))], axis=0)
-targetdata1 = targetdata1[get_mod_group(target_pred, mods)]
+targetind1, targetY1 = get_mod_group(target_pred, mods, thresh=args.test_thresh, return_class=True)
+targetdata1 = targetdata1[targetind1]
 f = open(target_file2, 'rb')
 targetdata2 = pickle.load(f, encoding='latin1')
 targetdata2 = np.stack([targetdata2[i+1] for i in range(len(targetdata2.keys()))], axis=0)
-targetdata2 = targetdata2[get_mod_group(target_pred2, mods)]
+targetind2, targetY2 = get_mod_group(target_pred2, mods, thresh=args.test_thresh, return_class=True)
+targetdata2 = targetdata2[targetind2]
 targetdata = np.concatenate([targetdata1, targetdata2], axis=0)
+targetY = np.concatenate([targetY1, targetY2], axis=0)
+assert targetdata.shape[0] == targetY.size
 print('Got {} instances from set1, {} from set 2'.format(targetdata1.shape[0],targetdata2.shape[0]))
 print()
 #import IPython; IPython.embed()
@@ -148,29 +150,16 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     #out = Average()([out_mid, out_late])
     return out, x
 
-def discriminate(x, nhidden=128, dr=0.5):
-#    x = Reshape((nhidden, 1))(x)
-#    H = Conv1D(filters=256, kernel_size=5, strides=2, activation='relu')(x)
-    #H = LeakyReLU(0.2)(H)
-    # H = Dropout(dropout_rate)(H)
-    # H = Conv1D(filters=512, kernel_size=[2,7], strides=[2,2],  activation='relu')(H)
-    # H = LeakyReLU(0.2)(H)
-    # H = Dropout(dropout_rate)(H)
-    H = x#Flatten()(x)
-    H = Dense(256, activation='relu')(H)
-    #H = LeakyReLU(0.2)(H)
-    H = Dropout(dr)(H)
-    d_V = Dense(2,activation='softmax')(H)
-    return d_V
 
-def center_loss(y_true, emb_pred, nclasses):
-    '''Just another crossentropy'''
-    nrof_classes = y_true.get_shape()[1]
-    y_pred /= y_pred.sum(axis=-1, keepdims=True)
-    cce = T.nnet.categorical_crossentropy(y_pred, y_true)
-    return cce
+# def center_loss(y_true, emb_pred, nclasses):
+#     '''Just another crossentropy'''
+#     nrof_classes = y_true.get_shape()[1]
+#     y_pred /= y_pred.sum(axis=-1, keepdims=True)
+#     cce = T.nnet.categorical_crossentropy(y_pred, y_true)
+#     return cce
 
-train_batch_size = args.batch_size
+train_batch_size = int(args.batch_size * args.tt_split)
+test_batch_size = args.batch_size - train_batch_size
 
 generators = []
 tsteps = 0
@@ -215,6 +204,12 @@ def get_train_batches(generators):
             end = beg + train_batch_size
             bx, by, bs = batches_x[beg:end], batches_y[beg:end], batches_snr[beg:end]
 
+            # Mix in the test data
+            test_inds = np.random.randint(0, high=targetdata.shape[0], size=test_batch_size)
+            bx_ = targetdata[test_inds]
+            by_ = targetY[test_inds]
+            bx = np.concatenate([bx,bx_], axis=0)
+            by = np.concatenate([by,by_], axis=0)
             yield bx, by
         
 
@@ -246,64 +241,65 @@ for m in range(args.m0, args.m0+args.num_models):
         tsteps += d.train_idx.size
     tsteps = tsteps//train_batch_size 
     train_batches = get_train_batches(generators)
-    #val_batches = get_val_batches(val_gen)
 
-    in_shp = (2, args.crop_to)
-    input_img = Input(shape=in_shp); input_img_ = Input(shape=in_shp)
-    out, emb = googleNet(input_img,nhidden=args.nhidden,data_format='channels_last', num_classes=num_classes)
-    model = Model(inputs=input_img, outputs=out)
     
-    model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
 
-    for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
-        try:
-            # Make generative images
-            bx, by = next(train_batches)
-        except(StopIteration):
-            break
-        if step % 100 == 0:
-            vx, vy = next(val_batches)
-            v_loss = model.test_on_batch(vx, vy)
-            print("Step {}, classification loss {}, discriminator loss {}, GAN loss {}, validation loss {}".format(step, c_loss, d_loss, g_loss, v_loss))
+    # in_shp = (2, args.crop_to)
+    # input_img = Input(shape=in_shp); input_img_ = Input(shape=in_shp)
+    # out, emb = googleNet(input_img,nhidden=args.nhidden,data_format='channels_last', num_classes=num_classes)
+    # model = Model(inputs=input_img, outputs=out)
+    
+    # model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
 
-        #import IPython; IPython.embed()
-        #make_trainable(discriminator,False)
-        c_loss = model.train_on_batch(bx, by)
-        losses["c"].append(c_loss)
+    # for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
+    #     try:
+    #         # Make generative images
+    #         bx, by = next(train_batches)
+    #     except(StopIteration):
+    #         break
+    #     if step % 100 == 0:
+    #         vx, vy = next(val_batches)
+    #         v_loss = model.test_on_batch(vx, vy)
+    #         print("Step {}, classification loss {}, discriminator loss {}, GAN loss {}, validation loss {}".format(step, c_loss, d_loss, g_loss, v_loss))
+
+    #     #import IPython; IPython.embed()
+    #     #make_trainable(discriminator,False)
+    #     c_loss = model.train_on_batch(bx, by)
+    #     losses["c"].append(c_loss)
         
 
 
     model_path = args.train_dir+'model{}.h5'.format(m)
-    # # if args.ngpu > 1:
-    # #     with tf.device("/cpu:0"):
-    # #         input_img = Input(shape=in_shp)
-    # #         out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-    # #         model = Model(inputs=input_img, outputs=out)
-    # #     model = multi_gpu_model(model, gpus=args.ngpu)
-    # # else:
-    # #     input_img = Input(shape=in_shp)
-    # #     out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-    # #     model = Model(inputs=input_img, outputs=out)
+    if args.ngpu > 1:
+        with tf.device("/cpu:0"):
+            input_img = Input(shape=in_shp)
+            out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+            model = Model(inputs=input_img, outputs=out)
+        model = multi_gpu_model(model, gpus=args.ngpu)
+    else:
+        input_img = Input(shape=in_shp)
+        out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
+        model = Model(inputs=input_img, outputs=out)
     
-    # filepath = args.train_dir+'checkpoints{}.h5'.format(m)
+    filepath = args.train_dir+'checkpoints{}.h5'.format(m)
 
-    # try:
-    #     history = model.fit_generator(train_batches,
-    #         nb_epoch=args.epochs,
-    #         steps_per_epoch=tsteps,
-    #         verbose=args.verbose,
-    #         validation_data=val_batches,
-    #         validation_steps=vsteps,
-    #         callbacks = [
-    #           keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=True, save_best_only=True, mode='auto'),
-    #           #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
-    #           keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.stoppatience,verbose=0, mode='auto'),
+    try:
+        history = model.fit_generator(train_batches,
+            nb_epoch=args.epochs,
+            steps_per_epoch=tsteps,
+            verbose=args.verbose,
+            validation_data=val_batches,
+            validation_steps=vsteps,
+            callbacks = [
+              keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=True, save_best_only=True, mode='auto'),
+              #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.stoppatience,verbose=0, mode='auto'),
 
-    #           #keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
-    #          ]) 
-    # except(StopIteration):
-    #     pass
-    # model.load_weights(filepath)
+              #keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
+             ]) 
+    except(StopIteration):
+        pass
+    model.load_weights(filepath)
     model.save(model_path)  
     
     # if args.test_file < 0: continue 
@@ -347,4 +343,4 @@ for m in range(args.m0, args.m0+args.num_models):
 
 
 
-    # print("Done model {} out of {}".format(m, args.num_models))
+    print("Done model {} out of {}".format(m, args.num_models))
