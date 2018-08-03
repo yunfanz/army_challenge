@@ -131,7 +131,7 @@ def out_tower(x, dr=0.5, reg=-1):
     out = Activation('softmax')(logits)
     return out
 
-def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
+def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_layers=[1,1,1,1], features=[1,1,1,1,1]):
     
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
@@ -140,10 +140,13 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
         x = Conv2D(filters=192*features[1], kernel_size=[1, 3], strides=[1,1], padding='same', activation='relu')(x)
     x = MaxPooling2D([1,3], strides=[1,2], padding='same')(x)
     for dep in range(num_layers[1]):
-        x = inception(x, height=2, fs=np.array([32,32,32,32,32])*features[2], tw_tower=True)
+        x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[2], tw_tower=True)
+    x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[2])
     x = MaxPooling2D([1,3], strides=2, padding='same')(x)
+    y = x
     for dep in range(num_layers[2]):
         x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[3], with_residual=True)
+    x = add([x,y])
     #out_mid = out_tower(x, dr=0.3)
     #for dep in range(num_layers[3]):
     #    x = inception(x, height=2, fs=np.array([48,96,48,96,96])*features[4], with_residual=True)
@@ -308,7 +311,7 @@ for m in range(args.m0, args.m0+args.num_models):
         input_img = Input(shape=in_shp)
         out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
         model = Model(inputs=input_img, outputs=out)
-    
+    model.summary()
     model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=args.lr))
     filepath = args.train_dir+'checkpoints{}.h5'.format(m)
     if args.warmup > 0:
