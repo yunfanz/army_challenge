@@ -20,7 +20,8 @@ parser.add_argument('--train_dir', type=str, default='/datax/yzhang/models/',
 parser.add_argument('--epochs', type=int, default=300)
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--ngpu', type=int, default=1)
-parser.add_argument('--nhidden', type=int, default=128)
+parser.add_argument('--nhidden', type=int, default=32)
+parser.add_argument('--test_thresh', type=float, default=0.85)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--startdraw', type=int, default=40000,
@@ -81,11 +82,11 @@ target_pred2 = BASEDIR+"TestSet2Predictions.csv"
 f = open(target_file, 'rb')
 targetdata1 = pickle.load(f, encoding='latin1')
 targetdata1 = np.stack([targetdata1[i+1] for i in range(len(targetdata1.keys()))], axis=0)
-targetdata1 = targetdata1[get_mod_group(target_pred, mods)]
+targetdata1 = targetdata1[get_mod_group(target_pred, mods, thresh=args.test_thresh)]
 f = open(target_file2, 'rb')
 targetdata2 = pickle.load(f, encoding='latin1')
 targetdata2 = np.stack([targetdata2[i+1] for i in range(len(targetdata2.keys()))], axis=0)
-targetdata2 = targetdata2[get_mod_group(target_pred2, mods)]
+targetdata2 = targetdata2[get_mod_group(target_pred2, mods, thresh=args.test_thresh)]
 targetdata = np.concatenate([targetdata1, targetdata2], axis=0)
 print('Got {} instances from set1, {} from set 2'.format(targetdata1.shape[0],targetdata2.shape[0]))
 print()
@@ -195,7 +196,6 @@ def get_train_batches(generators):
         if args.noise > 0:
             shp0, shp1, shp2 = batches_x.shape
             noisestd = args.noise/batches_snr[:,np.newaxis, np.newaxis]
-            noisestd = np.where(noisestd < args.noiseclip, noisestd, args.noiseclip)
             batches_x += noisestd * np.random.randn(shp0, shp1, shp2)
                 
         if args.resample is not None and np.random.random()>0.8:
