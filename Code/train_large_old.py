@@ -254,10 +254,10 @@ for m in range(args.m0, args.m0+args.num_models):
 
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
-        model.load_weights(filepath)
 
     except(StopIteration):
         pass
+    model.load_weights(filepath)
     model.save(model_path)  
     
     
