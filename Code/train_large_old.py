@@ -39,8 +39,9 @@ parser.add_argument('--sep', type=bool, default=False)
 parser.add_argument('--classifier_name', type=str, default="sub_classifer.h5")
 args = parser.parse_args()
 
-
-
+noise_choice = [0.19,0.20, 0.21, 0.22]
+args.noise = np.random.choice(noise_choice)
+print("Noise add", args.noise)
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
  'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
  'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
@@ -250,7 +251,7 @@ for m in range(args.m0, args.m0+args.num_models):
             callbacks = [
               keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
               keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=10,verbose=0, mode='auto'),
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=12,verbose=0, mode='auto'),
 
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
