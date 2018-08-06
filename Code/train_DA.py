@@ -268,6 +268,7 @@ for m in range(args.m0, args.m0+args.num_models):
 
     d_loss = 0; g_loss = 0; c_loss = 0 
     losses = {"d":[], "g":[], "c":[]}
+    v_loss_min = 2.
     for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
         try:
             # Make generative images
@@ -284,7 +285,10 @@ for m in range(args.m0, args.m0+args.num_models):
             vx, vy = next(val_batches)
             v_loss = model.test_on_batch(vx, vy)
             print("Step {}, classification loss {}, discriminator loss {}, GAN loss {}, validation loss {}".format(step, c_loss, d_loss, g_loss, v_loss))
-
+        if step % 1000 == 0 and v_loss < v_loss_min:
+            print("saving checkpoint, loss=", v_loss)
+            model.save_weights(args.train_dir+'checkpoint{}.h5'.format(m))
+            v_loss_min = v_loss
         #import IPython; IPython.embed()
         #make_trainable(discriminator,False)
         c_loss = model.train_on_batch(bx, by)
@@ -319,7 +323,7 @@ for m in range(args.m0, args.m0+args.num_models):
             lr = K.eval(model.optimizer.lr)
             dislr = K.eval(discriminator.optimizer.lr)
             ganlr = K.eval(GAN.optimizer.lr)
-            if meanc_loss <= epochc_loss and (lr > 1.e-5 and dislr > 1.e-5 and ganlr > 1.e-5):
+            if meanc_loss <= epochc_loss and (lr > 1.e-6 and dislr > 1.e-6 and ganlr > 1.e-6):
                 K.set_value(model.optimizer.lr, 0.1*lr)
                 K.set_value(discriminator.optimizer.lr, 0.1*dislr)
                 K.set_value(GAN.optimizer.lr, 0.1*ganlr)
@@ -328,77 +332,6 @@ for m in range(args.m0, args.m0+args.num_models):
 
 
     model_path = args.train_dir+'model{}.h5'.format(m)
-    # # if args.ngpu > 1:
-    # #     with tf.device("/cpu:0"):
-    # #         input_img = Input(shape=in_shp)
-    # #         out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-    # #         model = Model(inputs=input_img, outputs=out)
-    # #     model = multi_gpu_model(model, gpus=args.ngpu)
-    # # else:
-    # #     input_img = Input(shape=in_shp)
-    # #     out = googleNet(input_img,data_format='channels_last', num_classes=num_classes)
-    # #     model = Model(inputs=input_img, outputs=out)
-    
-    # filepath = args.train_dir+'checkpoints{}.h5'.format(m)
-
-    # try:
-    #     history = model.fit_generator(train_batches,
-    #         nb_epoch=args.epochs,
-    #         steps_per_epoch=tsteps,
-    #         verbose=args.verbose,
-    #         validation_data=val_batches,
-    #         validation_steps=vsteps,
-    #         callbacks = [
-    #           keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_weights_only=True, save_best_only=True, mode='auto'),
-    #           #keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
-    #           keras.callbacks.EarlyStopping(monitor='val_loss', patience=args.stoppatience,verbose=0, mode='auto'),
-
-    #           #keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
-    #          ]) 
-    # except(StopIteration):
-    #     pass
-    # model.load_weights(filepath)
+    model.load_weights(args.train_dir+'checkpoint{}.h5'.format(m))
     model.save(model_path)  
     
-    # if args.test_file < 0: continue 
-    # #Print test accuracies
-
-    # acc = {}
-    # scores = {}
-    # snrs = np.arange(-15,15, 5)
-
-    # classes = testdata.modTypes
-
-    # print("classes ", classes)
-    # for snr in testdata.snrValues:
-
-    #     # extract classes @ SNR
-    #     snrThreshold_lower = snr
-    #     snrThreshold_upper = snr+5
-    #     snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
-
-    #     test_X_i = testdata.signalData[snr_bounded_test_indicies]
-    #     test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
-        
-    #     #sc, ac = model.evaluate(test_X_i, test_Y_i, batch_size=256)
-    #     # estimate classes
-    #     test_Y_i_hat = model.predict(test_X_i)
-    #     conf = np.zeros([len(classes),len(classes)])
-    #     confnorm = np.zeros([len(classes),len(classes)])
-    #     for i in range(0,test_X_i.shape[0]):
-    #         j = list(test_Y_i[i,:]).index(1)
-    #         k = int(np.argmax(test_Y_i_hat[i,:]))
-    #         conf[j,k] = conf[j,k] + 1
-    #     for i in range(0,len(classes)):
-    #         confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
-    #     # plt.figure(figsize=(10,10))
-    #     # plot_confusion_matrix(confnorm, labels=classes, title="ConvNet Confusion Matrix (SNR=%d)"%(snr))
-
-    #     cor = np.sum(np.diag(conf))
-    #     ncor = np.sum(conf) - cor
-    #     print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
-    #     acc[snr] = 1.0*cor/(cor+ncor)
-
-
-
-    # print("Done model {} out of {}".format(m, args.num_models))

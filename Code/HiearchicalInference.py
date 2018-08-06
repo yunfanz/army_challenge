@@ -21,6 +21,9 @@ parser.add_argument('--all_snr', type=bool, default=False)
 parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--test', type=int, default=1)
 parser.add_argument('--eps', type=float, default=1.e-15)
+parser.add_argument('--subweight', type=float, default=0.8)
+parser.add_argument('--qamweight', type=float, default=1.)
+parser.add_argument('--pskweight', type=float, default=1.)
 parser.add_argument('--model', type=str, default=None,
                     help='group 0 model')
 parser.add_argument('--submodel', type=str, default=None,
@@ -143,9 +146,9 @@ def get_logloss(test_Y_i_hat, test_Y_i, EPS, round_to=None):
     logloss = - np.sum(test_Y_i*np.log(test_Y_i_hat))/test_Y_i.shape[0]
     return logloss
 
-def hiarch_update(Y_i_hat, sub_hat, mods):
+def hiarch_update(Y_i_hat, sub_hat, mods, weight=1.):
     sub_sum = np.sum(Y_i_hat[mods])
-    Y_i_hat[mods] = sub_sum * sub_hat
+    Y_i_hat[mods] = weight * sub_sum * sub_hat + (1-weight)*Y_i_hat[mods]
     k = int(np.argmax(Y_i_hat))
     return Y_i_hat, k
 
@@ -216,11 +219,11 @@ else:
     for i in range(0,preds.shape[0]):
         k = int(np.argmax(preds[i,:]))
         if s_path is not None and k in mods:
-            preds[i], k = hiarch_update(preds[i], subpreds[i], mods)
+            preds[i], k = hiarch_update(preds[i], subpreds[i], mods, args.subweight)
         elif q_path is not None and k in QAMmods:
-            preds[i], k = hiarch_update(preds[i], qampreds[i], QAMmods)
+            preds[i], k = hiarch_update(preds[i], qampreds[i], QAMmods, args.qamweight)
         elif p_path is not None and k in PSKmods:
-            preds[i], k = hiarch_update(preds[i], pskpreds[i], PSKmods)
+            preds[i], k = hiarch_update(preds[i], pskpreds[i], PSKmods, args.pskweight)
     preds = np.where(preds>EPS, preds, EPS)
     preds = np.where(preds<1-EPS, preds, 1-EPS)
     preds /= np.sum(preds, axis=1, keepdims=True)
