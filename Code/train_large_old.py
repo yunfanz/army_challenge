@@ -27,7 +27,7 @@ parser.add_argument('--val_file', type=int, default=13)
 parser.add_argument('--lrpatience', type=int, default=8)
 parser.add_argument('--minlr', type=float, default=0.00001)
 parser.add_argument('--noiseclip', type=float, default=1.)
-parser.add_argument('--test_file', type=int, default=14)
+parser.add_argument('--test_file', type=int, default=-1)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/army_challenge/training_data/',
                     help='an integer for the accumulator')
