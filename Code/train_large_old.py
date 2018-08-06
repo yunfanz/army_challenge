@@ -250,7 +250,7 @@ for m in range(args.m0, args.m0+args.num_models):
             callbacks = [
               keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
               keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=20,verbose=0, mode='auto'),
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=10,verbose=0, mode='auto'),
 
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
