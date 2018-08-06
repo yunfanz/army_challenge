@@ -20,14 +20,14 @@ parser.add_argument('--train_dir', type=str, default='/datax/yzhang/models/',
 parser.add_argument('--epochs', type=int, default=300)
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--ngpu', type=int, default=1)
-parser.add_argument('--nhidden', type=int, default=32)
+parser.add_argument('--nhidden', type=int, default=16)
 parser.add_argument('--test_thresh', type=float, default=0.85)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
-parser.add_argument('--startdraw', type=int, default=40000,
+parser.add_argument('--startdraw', type=int, default=30000,
                      help="step number to start drawing from test set 1")
-parser.add_argument('--lr', type=float, default=0.001)
-parser.add_argument('--dislr', type=float, default=0.0005)
+parser.add_argument('--lr', type=float, default=0.002)
+parser.add_argument('--dislr', type=float, default=0.0004)
 parser.add_argument('--ganlr', type=float, default=0.0002)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=-1.)

@@ -263,41 +263,41 @@ for m in range(args.m0, args.m0+args.num_models):
     
     #Print test accuracies
 
-    acc = {}
-    scores = {}
-    snrs = np.arange(-15,15, 5)
+    #acc = {}
+    #scores = {}
+    #snrs = np.arange(-15,15, 5)
 
-    classes = testdata.modTypes
+    #classes = testdata.modTypes
 
-    print("classes ", classes)
-    for snr in testdata.snrValues:
+    #print("classes ", classes)
+    #for snr in testdata.snrValues:
 
         # extract classes @ SNR
-        snrThreshold_lower = snr
-        snrThreshold_upper = snr+5
-        snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
+    #    snrThreshold_lower = snr
+    #    snrThreshold_upper = snr+5
+    #    snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
 
-        test_X_i = testdata.signalData[snr_bounded_test_indicies]
-        test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
+     #   test_X_i = testdata.signalData[snr_bounded_test_indicies]
+     #   test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
         
         #sc, ac = model.evaluate(test_X_i, test_Y_i, batch_size=256)
         # estimate classes
-        test_Y_i_hat = model.predict(test_X_i)
-        conf = np.zeros([len(classes),len(classes)])
-        confnorm = np.zeros([len(classes),len(classes)])
-        for i in range(0,test_X_i.shape[0]):
-            j = list(test_Y_i[i,:]).index(1)
-            k = int(np.argmax(test_Y_i_hat[i,:]))
-            conf[j,k] = conf[j,k] + 1
-        for i in range(0,len(classes)):
-            confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
+      #  test_Y_i_hat = model.predict(test_X_i)
+       # conf = np.zeros([len(classes),len(classes)])
+        #confnorm = np.zeros([len(classes),len(classes)])
+        #for i in range(0,test_X_i.shape[0]):
+     #       j = list(test_Y_i[i,:]).index(1)
+     #       k = int(np.argmax(test_Y_i_hat[i,:]))
+     #       conf[j,k] = conf[j,k] + 1
+     #   for i in range(0,len(classes)):
+     #       confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
         # plt.figure(figsize=(10,10))
         # plot_confusion_matrix(confnorm, labels=classes, title="ConvNet Confusion Matrix (SNR=%d)"%(snr))
 
-        cor = np.sum(np.diag(conf))
-        ncor = np.sum(conf) - cor
-        print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
-        acc[snr] = 1.0*cor/(cor+ncor)
+      #  cor = np.sum(np.diag(conf))
+      #  ncor = np.sum(conf) - cor
+      #  print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
+      #  acc[snr] = 1.0*cor/(cor+ncor)
 
 
 
