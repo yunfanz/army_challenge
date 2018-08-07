@@ -27,8 +27,8 @@ parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--startdraw', type=int, default=30000,
                      help="step number to start drawing from test set 1")
 parser.add_argument('--lr', type=float, default=0.002)
-parser.add_argument('--dislr', type=float, default=0.0004)
-parser.add_argument('--ganlr', type=float, default=0.0002)
+parser.add_argument('--dislr', type=float, default=0.0002)
+parser.add_argument('--ganlr', type=float, default=0.0001)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
@@ -317,13 +317,14 @@ for m in range(args.m0, args.m0+args.num_models):
             g_loss = GAN.train_on_batch(bx_, y2 )
         losses["g"].append(g_loss)
 
-        if step>3000 and step % 100 ==0: # one epoch of test data
-            epochc_loss = np.mean(losses["c"][-100:])
-            meanc_loss = np.mean(losses["c"][-800:])
+        if step>args.startdraw+5000 and step % 2000 == 0: # one epoch of test data
+            epochc_loss = np.mean(losses["c"][-1000:])
+            meanc_loss = np.mean(losses["c"][-8000:])
             lr = K.eval(model.optimizer.lr)
             dislr = K.eval(discriminator.optimizer.lr)
             ganlr = K.eval(GAN.optimizer.lr)
             if meanc_loss <= epochc_loss and (lr > 1.e-6 and dislr > 1.e-6 and ganlr > 1.e-6):
+                print("reducing learning rate from", lr, dislr, ganlr)
                 K.set_value(model.optimizer.lr, 0.1*lr)
                 K.set_value(discriminator.optimizer.lr, 0.1*dislr)
                 K.set_value(GAN.optimizer.lr, 0.1*ganlr)
@@ -334,4 +335,4 @@ for m in range(args.m0, args.m0+args.num_models):
     model_path = args.train_dir+'model{}.h5'.format(m)
     model.load_weights(args.train_dir+'checkpoint{}.h5'.format(m))
     model.save(model_path)  
-    
+    print("Done {}/{}".format(m0, args.num_models)) 
