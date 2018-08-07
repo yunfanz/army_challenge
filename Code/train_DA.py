@@ -317,19 +317,21 @@ for m in range(args.m0, args.m0+args.num_models):
             g_loss = GAN.train_on_batch(bx_, y2 )
         losses["g"].append(g_loss)
 
-        if step>args.startdraw+5000 and step % 2000 == 0: # one epoch of test data
+        if step>args.startdraw+5000 and step % 20000== 0: # one epoch of test data
             epochc_loss = np.mean(losses["c"][-1000:])
-            meanc_loss = np.mean(losses["c"][-8000:])
+            meanc_loss = np.mean(losses["c"][-10000:])
             lr = K.eval(model.optimizer.lr)
             dislr = K.eval(discriminator.optimizer.lr)
             ganlr = K.eval(GAN.optimizer.lr)
-            if meanc_loss <= epochc_loss and (lr > 1.e-6 and dislr > 1.e-6 and ganlr > 1.e-6):
-                print("reducing learning rate from", lr, dislr, ganlr)
-                K.set_value(model.optimizer.lr, 0.1*lr)
-                K.set_value(discriminator.optimizer.lr, 0.1*dislr)
-                K.set_value(GAN.optimizer.lr, 0.1*ganlr)
-
-
+            if meanc_loss <= epochc_loss:
+                if (lr > 5.e-6 and dislr > 1.e-7 and ganlr > 1.e-7):
+                    print("reducing learning rate from", lr, dislr, ganlr)
+                    K.set_value(model.optimizer.lr, 0.1*lr)
+                    K.set_value(discriminator.optimizer.lr, 0.1*dislr)
+                    K.set_value(GAN.optimizer.lr, 0.1*ganlr)
+                else:
+                    print ("Stopping early")
+                    break
 
 
     model_path = args.train_dir+'model{}.h5'.format(m)
