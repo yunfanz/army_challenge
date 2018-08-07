@@ -24,7 +24,7 @@ parser.add_argument('--nhidden', type=int, default=16)
 parser.add_argument('--test_thresh', type=float, default=0.85)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
-parser.add_argument('--startdraw', type=int, default=30000,
+parser.add_argument('--startdraw', type=int, default=20000,
                      help="step number to start drawing from test set 1")
 parser.add_argument('--lr', type=float, default=0.002)
 parser.add_argument('--dislr', type=float, default=0.0002)
@@ -151,8 +151,8 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     return out, x
 
 def discriminate(x, nhidden=128, dr=0.5):
-#    x = Reshape((nhidden, 1))(x)
-#    H = Conv1D(filters=256, kernel_size=5, strides=2, activation='relu')(x)
+    #x = Reshape((nhidden, 1))(x)
+    #H = Conv1D(filters=256, kernel_size=5, strides=2, activation='relu')(x)
     #H = LeakyReLU(0.2)(H)
     # H = Dropout(dropout_rate)(H)
     # H = Conv1D(filters=512, kernel_size=[2,7], strides=[2,2],  activation='relu')(H)
@@ -267,7 +267,7 @@ for m in range(args.m0, args.m0+args.num_models):
 
 
     d_loss = 0; g_loss = 0; c_loss = 0 
-    losses = {"d":[], "g":[], "c":[]}
+    losses = {"d":[], "g":[], "c":[], "v",[]}
     v_loss_min = 2.
     for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
         try:
@@ -281,14 +281,21 @@ for m in range(args.m0, args.m0+args.num_models):
             bx_ = targetdata[np.random.randint(0, high=targetdata.shape[0], size=args.batch_size)]
         if step == args.startdraw:
             print('Start drawing from test set 1')
-        if step % 100 == 0:
+        if step % 400 == 0 and step % 1000 != 0:
             vx, vy = next(val_batches)
             v_loss = model.test_on_batch(vx, vy)
+            #losses["v"].append(v_loss)
             print("Step {}, classification loss {}, discriminator loss {}, GAN loss {}, validation loss {}".format(step, c_loss, d_loss, g_loss, v_loss))
-        if step % 1000 == 0 and v_loss < v_loss_min:
-            print("saving checkpoint, loss=", v_loss)
-            model.save_weights(args.train_dir+'checkpoint{}.h5'.format(m))
-            v_loss_min = v_loss
+        elif step % 1000 == 0:
+            vls = []
+            for b in range(10):
+                vx, vy = next(val_batches)
+                vls.append(model.test_on_batch(vx, vy))
+            v_loss = np.mean(vls)
+            if v_loss < v_loss_min:
+                print("saving checkpoint, loss=", v_loss)
+                model.save_weights(args.train_dir+'checkpoint{}.h5'.format(m))
+                v_loss_min = v_loss
         #import IPython; IPython.embed()
         #make_trainable(discriminator,False)
         c_loss = model.train_on_batch(bx, by)
@@ -317,7 +324,7 @@ for m in range(args.m0, args.m0+args.num_models):
             g_loss = GAN.train_on_batch(bx_, y2 )
         losses["g"].append(g_loss)
 
-        if step>args.startdraw+5000 and step % 20000== 0: # one epoch of test data
+        if step>args.startdraw+5000 and step % 10000== 0: # one epoch of test data
             epochc_loss = np.mean(losses["c"][-1000:])
             meanc_loss = np.mean(losses["c"][-10000:])
             lr = K.eval(model.optimizer.lr)
