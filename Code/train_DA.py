@@ -267,7 +267,7 @@ for m in range(args.m0, args.m0+args.num_models):
 
 
     d_loss = 0; g_loss = 0; c_loss = 0 
-    losses = {"d":[], "g":[], "c":[], "v",[]}
+    losses = {"d":[], "g":[], "c":[], "v":[]}
     v_loss_min = 2.
     for step in range(args.epochs*(targetdata.shape[0]//args.batch_size)*10):  #actually num_batches
         try:
