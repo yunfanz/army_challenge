@@ -27,8 +27,8 @@ parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--startdraw', type=int, default=20000,
                      help="step number to start drawing from test set 1")
 parser.add_argument('--lr', type=float, default=0.002)
-parser.add_argument('--dislr', type=float, default=0.0002)
-parser.add_argument('--ganlr', type=float, default=0.0001)
+parser.add_argument('--dislr', type=float, default=0.0004)
+parser.add_argument('--ganlr', type=float, default=0.0002)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=-1.)
 parser.add_argument('--crop_to', type=int, default=1024)
@@ -324,9 +324,9 @@ for m in range(args.m0, args.m0+args.num_models):
             g_loss = GAN.train_on_batch(bx_, y2 )
         losses["g"].append(g_loss)
 
-        if step>args.startdraw+5000 and step % 10000== 0: # one epoch of test data
+        if True and step>args.startdraw+15000 and step % 15000== 0: # one epoch of test data
             epochc_loss = np.mean(losses["c"][-1000:])
-            meanc_loss = np.mean(losses["c"][-10000:])
+            meanc_loss = np.mean(losses["c"][-15000:])
             lr = K.eval(model.optimizer.lr)
             dislr = K.eval(discriminator.optimizer.lr)
             ganlr = K.eval(GAN.optimizer.lr)
