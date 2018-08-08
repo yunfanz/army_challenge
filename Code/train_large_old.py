@@ -39,7 +39,7 @@ parser.add_argument('--sep', type=bool, default=False)
 parser.add_argument('--classifier_name', type=str, default="sub_classifer.h5")
 args = parser.parse_args()
 
-noise_choice = [0.19,0.20, 0.21, 0.22]
+noise_choice = [0.20, 0.21, 0.22,0.23,0.24]
 args.noise = np.random.choice(noise_choice)
 print("Noise add", args.noise)
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
