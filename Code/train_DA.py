@@ -48,7 +48,7 @@ args = parser.parse_args()
 #facebook linear scaling rule. 
 args.lr  = args.lr * args.ngpu * (args.batch_size / 512)
 args.batch_size = args.batch_size * args.ngpu
-
+args.test_thresh = args.test_thresh + np.random.uniform(-0.02,0.02)
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
  'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
  'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
@@ -344,4 +344,4 @@ for m in range(args.m0, args.m0+args.num_models):
     model_path = args.train_dir+'model{}.h5'.format(m)
     model.load_weights(args.train_dir+'checkpoint{}.h5'.format(m))
     model.save(model_path)  
-    print("Done {}/{}".format(m0, args.num_models)) 
+    print("Done {}/{}".format(m, args.num_models)) 
