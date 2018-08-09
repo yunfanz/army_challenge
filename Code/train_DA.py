@@ -151,14 +151,14 @@ def googleNet(x, nhidden=128, data_format='channels_last', num_classes=24,num_la
     return out, x
 
 def discriminate(x, nhidden=128, dr=0.5):
-    #x = Reshape((nhidden, 1))(x)
-    #H = Conv1D(filters=256, kernel_size=5, strides=2, activation='relu')(x)
+    x = Reshape((nhidden, 1))(x)
+    H = Conv1D(filters=512, kernel_size=5, strides=2, activation='relu')(x)
     #H = LeakyReLU(0.2)(H)
     # H = Dropout(dropout_rate)(H)
-    # H = Conv1D(filters=512, kernel_size=[2,7], strides=[2,2],  activation='relu')(H)
+    H = Conv1D(filters=512, kernel_size=3, strides=2,  activation='relu')(H)
     # H = LeakyReLU(0.2)(H)
-    # H = Dropout(dropout_rate)(H)
-    H = x#Flatten()(x)
+    H = Dropout(dr)(H)
+    H = Flatten()(x)
     H = Dense(256, activation='relu')(H)
     #H = LeakyReLU(0.2)(H)
     H = Dropout(dr)(H)
@@ -334,6 +334,9 @@ for m in range(args.m0, args.m0+args.num_models):
                 if (lr > 5.e-5 and dislr > 1.e-5 and ganlr > 1.e-5):
                     print("reducing learning rate from", lr, dislr, ganlr)
                     K.set_value(model.optimizer.lr, 0.1*lr)
+                    if ganlr < 1.e-4:
+                        ganlr *= 2
+                        dislr *= 2
                     K.set_value(discriminator.optimizer.lr, 0.1*dislr)
                     K.set_value(GAN.optimizer.lr, 0.1*ganlr)
                 else:
