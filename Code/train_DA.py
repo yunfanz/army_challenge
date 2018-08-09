@@ -331,7 +331,7 @@ for m in range(args.m0, args.m0+args.num_models):
             dislr = K.eval(discriminator.optimizer.lr)
             ganlr = K.eval(GAN.optimizer.lr)
             if meanc_loss <= epochc_loss:
-                if (lr > 5.e-6 and dislr > 1.e-7 and ganlr > 1.e-7):
+                if (lr > 5.e-5 and dislr > 1.e-5 and ganlr > 1.e-5):
                     print("reducing learning rate from", lr, dislr, ganlr)
                     K.set_value(model.optimizer.lr, 0.1*lr)
                     K.set_value(discriminator.optimizer.lr, 0.1*dislr)
