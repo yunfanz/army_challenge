@@ -22,6 +22,7 @@ parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--test', type=int, default=1)
 parser.add_argument('--eps', type=float, default=1.e-15)
 parser.add_argument('--subweight', type=float, default=0.8)
+parser.add_argument('--qampskweight', type=float, default=1.)
 parser.add_argument('--qamweight', type=float, default=1.)
 parser.add_argument('--pskweight', type=float, default=1.)
 parser.add_argument('--model', type=str, default=None,
@@ -30,6 +31,7 @@ parser.add_argument('--submodel', type=str, default=None,
                     help='an integer for the accumulator')
 parser.add_argument('--qammodel', type=str, default=None)
 parser.add_argument('--pskmodel', type=str, default=None)
+parser.add_argument('--qampskmodel', type=str, default=None)
 parser.add_argument('--num_classes', type=int, default=24,
                     help='an integer for the accumulator')
 parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/training_data/',
@@ -51,6 +53,7 @@ mods = np.array([1,9,10,11,12,13])
 AMmods = np.array([4,5])
 QAMmods = np.array([6,7,20,21,22])
 PSKmods = np.array([0,3])
+QAMPSKmods = np.concatenate([QAMmods, PSKmods])
 BASEDIR = args.train_dir
 DATABASE = args.data_dir
 if args.model is None:
@@ -74,6 +77,15 @@ elif os.path.isdir(args.qammodel):
     print(q_path)
 else:
     q_path = [args.qammodel]
+
+if args.qampskmodel is None:
+    qp_path = None
+elif os.path.isdir(args.qampskmodel):
+    qp_path = find_files(args.qampskmodel, pattern="model*.h5")
+    print(qp_path)
+else:
+    qp_path = [args.qampskmodel]
+
 if args.pskmodel is None:
     p_path = None
 elif os.path.isdir(args.pskmodel):
@@ -174,6 +186,7 @@ if args.mode == 'test':
         # estimate classes
         test_Y_i_hat = ens_predictions(m_path, test_X_i)#model.predict(test_X_i) # shape (batch, nmods)
         sub_Y_i_hat = ens_predictions(s_path, test_X_i)#submodel.predict(test_X_i)
+        qampsk_Y_i_hat = ens_predictions(qp_path, test_X_i)
         qam_Y_i_hat = ens_predictions(q_path, test_X_i)#submodel.predict(test_X_i)
         psk_Y_i_hat = ens_predictions(p_path, test_X_i)#submodel.predict(test_X_i)
         conf = np.zeros([len(classes),len(classes)])
@@ -185,6 +198,8 @@ if args.mode == 'test':
             k = int(np.argmax(test_Y_i_hat[i,:]))
             if s_path is not None and k in mods:
                 test_Y_i_hat[i], k = hiarch_update(test_Y_i_hat[i], sub_Y_i_hat[i], mods)
+            elif qp_path is not None and k in QAMPSKmods:
+                test_Y_i_hat[i], k = hiarch_update(test_Y_i_hat[i], qampsk_Y_i_hat[i], QAMPSKmods)
             elif q_path is not None and k in QAMmods:
                 test_Y_i_hat[i], k = hiarch_update(test_Y_i_hat[i], qam_Y_i_hat[i], QAMmods)
             elif p_path is not None and k in PSKmods:
@@ -213,19 +228,30 @@ if args.mode == 'test':
 
 else:
     preds = ens_predictions(m_path,testdata) 
+    preds[:,19] = 0 #set PI4QPSK to 0
+    if args.test == 1:
+        preds[:,11]=0  #set the FM to 0
+        preds[:,12]=0
     subpreds = ens_predictions(s_path,testdata) 
+    qampskpreds = ens_predictions(qp_path,testdata)
     qampreds = ens_predictions(q_path,testdata) 
     pskpreds = ens_predictions(p_path,testdata) 
     for i in range(0,preds.shape[0]):
         k = int(np.argmax(preds[i,:]))
         if s_path is not None and k in mods:
             preds[i], k = hiarch_update(preds[i], subpreds[i], mods, args.subweight)
+        elif qp_path is not None and k in QAMPSKmods:
+            preds[i], k = hiarch_update(preds[i], qampskpreds[i], QAMPSKmods, args.qampskweight)
         elif q_path is not None and k in QAMmods:
             preds[i], k = hiarch_update(preds[i], qampreds[i], QAMmods, args.qamweight)
         elif p_path is not None and k in PSKmods:
             preds[i], k = hiarch_update(preds[i], pskpreds[i], PSKmods, args.pskweight)
     preds = np.where(preds>EPS, preds, EPS)
     preds = np.where(preds<1-EPS, preds, 1-EPS)
+    preds[:,19] = 0 #set PI4QPSK to 0
+    if args.test == 1:
+        preds[:,11]=0  #set the FM to 0
+        preds[:,12]=0
     preds /= np.sum(preds, axis=1, keepdims=True)
     # save with 15 decimals
     fmt = '%1.0f' + preds.shape[1] * ',%1.15f'

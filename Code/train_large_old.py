@@ -27,7 +27,7 @@ parser.add_argument('--val_file', type=int, default=13)
 parser.add_argument('--lrpatience', type=int, default=8)
 parser.add_argument('--minlr', type=float, default=0.00001)
 parser.add_argument('--noiseclip', type=float, default=1.)
-parser.add_argument('--test_file', type=int, default=14)
+parser.add_argument('--test_file', type=int, default=-1)
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/army_challenge/training_data/',
                     help='an integer for the accumulator')
@@ -40,7 +40,8 @@ parser.add_argument('--classifier_name', type=str, default="sub_classifer.h5")
 args = parser.parse_args()
 
 
-
+args.noise = args.noise + np.random.uniform(-0.02, 0.02)
+print("Noise add", args.noise)
 CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
  'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
  'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
@@ -250,14 +251,14 @@ for m in range(args.m0, args.m0+args.num_models):
             callbacks = [
               keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, mode='auto'),
               keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.lrpatience, min_lr=args.minlr),
-              keras.callbacks.EarlyStopping(monitor='val_loss', patience=20,verbose=0, mode='auto'),
+              keras.callbacks.EarlyStopping(monitor='val_loss', patience=12,verbose=0, mode='auto'),
 
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
-        model.load_weights(filepath)
 
     except(StopIteration):
         pass
+    model.load_weights(filepath)
     model.save(model_path)  
     
     
