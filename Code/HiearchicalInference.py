@@ -228,6 +228,10 @@ if args.mode == 'test':
 
 else:
     preds = ens_predictions(m_path,testdata) 
+    preds[:,19] = 0 #set PI4QPSK to 0
+    if args.test == 1:
+        preds[:,11]=0  #set the FM to 0
+        preds[:,12]=0
     subpreds = ens_predictions(s_path,testdata) 
     qampskpreds = ens_predictions(qp_path,testdata)
     qampreds = ens_predictions(q_path,testdata) 
@@ -244,6 +248,10 @@ else:
             preds[i], k = hiarch_update(preds[i], pskpreds[i], PSKmods, args.pskweight)
     preds = np.where(preds>EPS, preds, EPS)
     preds = np.where(preds<1-EPS, preds, 1-EPS)
+    preds[:,19] = 0 #set PI4QPSK to 0
+    if args.test == 1:
+        preds[:,11]=0  #set the FM to 0
+        preds[:,12]=0
     preds /= np.sum(preds, axis=1, keepdims=True)
     # save with 15 decimals
     fmt = '%1.0f' + preds.shape[1] * ',%1.15f'
