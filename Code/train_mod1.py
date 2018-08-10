@@ -70,8 +70,8 @@ for i in range(args.num_files):
     data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=[CLASSES[mod] for mod in mods]))
 
 
-data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
-testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
+#data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
+#testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=[CLASSES[mod] for mod in mods])
 
 
 #global conv_index
