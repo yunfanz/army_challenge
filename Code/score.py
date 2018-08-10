@@ -4,12 +4,6 @@ import os
 from utils import find_files
 import argparse
 
-parser = argparse.ArgumentParser(description='Process')
-parser.add_argument('--csv_file', type=str, default=None,
-                    help='Name and path of csv prediction file.')
-parser.add_argument('--data_file', type=str, default=None,
-                    help='Name and path of data file that has the labels.')
-args = parser.parse_args()
 
 def load_label(data_file):
 
@@ -63,7 +57,26 @@ def evaluate(preds, labels):
     score = 100/(1+logloss)
     
     return logloss, score
+
+def get_pred(csv_path):
+    if os.path.isdir(csv_path):
+        csv_files = find_files(csv_path, pattern="*.csv")
+        csv_files = sorted(csv_files)
+    else:
+        csv_files = [csv_path]
+    print(csv_files)
+    preds = np.concatenate([load_pred(fname) for fname in csv_files], axis=0)
+    print(preds.shape)
+    return preds
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Process')
+    parser.add_argument('--csv_file', type=str, default=None,
+                    help='Name and path of csv prediction file.')
+    parser.add_argument('--data_file', type=str, default=None,
+                    help='Name and path of data file that has the labels.')
+    args = parser.parse_args()
+    
     if os.path.isdir(args.csv_file):
         csv_files = find_files(args.csv_file, pattern="*.csv")
         csv_files = sorted(csv_files)
