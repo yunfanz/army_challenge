@@ -20,14 +20,14 @@ parser.add_argument('--train_dir', type=str, default='/datax/yzhang/models/',
 parser.add_argument('--epochs', type=int, default=300)
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--ngpu', type=int, default=1)
-parser.add_argument('--nhidden', type=int, default=16)
+parser.add_argument('--nhidden', type=int, default=32)
 parser.add_argument('--test_thresh', type=float, default=0.85)
 parser.add_argument('--resample', type=int, default=None)
 parser.add_argument('--m0', type=int, default=0)
 parser.add_argument('--startdraw', type=int, default=20000,
                      help="step number to start drawing from test set 1")
-parser.add_argument('--lr', type=float, default=0.002)
-parser.add_argument('--dislr', type=float, default=0.0004)
+parser.add_argument('--lr', type=float, default=0.001)
+parser.add_argument('--dislr', type=float, default=0.0005)
 parser.add_argument('--ganlr', type=float, default=0.0002)
 parser.add_argument('--noise', type=float, default=-1.)
 parser.add_argument('--confireg', type=float, default=-1.)
@@ -154,7 +154,7 @@ def discriminate(x, nhidden=128, dr=0.5):
     x = Reshape((nhidden, 1))(x)
     H = Conv1D(filters=512, kernel_size=5, strides=2, activation='relu')(x)
     #H = LeakyReLU(0.2)(H)
-    # H = Dropout(dropout_rate)(H)
+    H = Dropout(dr)(H)
     H = Conv1D(filters=512, kernel_size=3, strides=2,  activation='relu')(H)
     # H = LeakyReLU(0.2)(H)
     H = Dropout(dr)(H)
@@ -324,7 +324,7 @@ for m in range(args.m0, args.m0+args.num_models):
             g_loss = GAN.train_on_batch(bx_, y2 )
         losses["g"].append(g_loss)
 
-        if True and step>args.startdraw+15000 and step % 15000== 0: # one epoch of test data
+        if True and step>args.startdraw+8000 and step % 15000== 0: # one epoch of test data
             epochc_loss = np.mean(losses["c"][-1000:])
             meanc_loss = np.mean(losses["c"][-15000:])
             lr = K.eval(model.optimizer.lr)
