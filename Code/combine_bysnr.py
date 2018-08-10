@@ -1,7 +1,7 @@
 from score import *
 
-csv_path1 = '/home/yzhang/Projects/army_challenge/Code/anom/test2_1121gp0.csv'
-csv_path2 = '/home/yzhang/Projects/army_challenge/Code/anom/test2_1262gp0.csv'
+csv_path1 = '/home/yzhang/Projects/army_challenge/Code/anom/test2_1262gp0.csv'
+csv_path2 = '/home/yzhang/Projects/army_challenge/Code/anom/test2_1121gp0.csv'
 #csv_path2 = './anom/train0_1121_model0'
 
 # snr = np.load('/datax/yzhang/test_data/train0_snr.npy')
