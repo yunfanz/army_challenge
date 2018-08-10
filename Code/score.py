@@ -1,6 +1,7 @@
 import numpy as np
 from data_loader import *
-
+import os
+from utils import find_files
 import argparse
 
 parser = argparse.ArgumentParser(description='Process')
@@ -8,9 +9,9 @@ parser.add_argument('--csv_file', type=str, default=None,
                     help='Name and path of csv prediction file.')
 parser.add_argument('--data_file', type=str, default=None,
                     help='Name and path of data file that has the labels.')
+args = parser.parse_args()
 
-def evaluate(csv_file,data_file)
-#    args = parser.parse_args()
+def load_label(data_file):
 
 #    csv_file = args.csv_file
 #    data_file = args.data_file
@@ -21,8 +22,9 @@ def evaluate(csv_file,data_file)
     # make sure all PI4QPSK is not scored
     for i in range(labels.shape[0]):
         labels[i][19] = 0
+    return labels
 
-
+def load_pred(csv_file):    
     with open(csv_file) as f:
         f.readline() # get rid of header
         preds = f.read()
@@ -38,8 +40,9 @@ def evaluate(csv_file,data_file)
     # reshape and remove index column
     preds = preds.reshape((-1,25))
     preds = preds[:,1:]
+    return preds
 
-
+def evaluate(preds, labels):
     # avoid log extremes
     x,y = preds.shape
     for i in range(x):
@@ -52,17 +55,24 @@ def evaluate(csv_file,data_file)
 
     preds = np.log(preds)
 
-    preds = preds*labels
+    preds = preds*labels#[:preds.shape[0]]
 
-    sample_size = preds.shape[0]
+    sample_size = (preds.shape[0]*23./24)  #exclude PIQPSK
 
     logloss = -np.sum(preds) / sample_size
     score = 100/(1+logloss)
     
     return logloss, score
 if __name__ == '__main__':
-    
-    logloss, score = evaluate(args.csv_file, args.data_file)
+    if os.path.isdir(args.csv_file):
+        csv_files = find_files(args.csv_file, pattern="*.csv")
+        csv_files = sorted(csv_files)
+    else:
+        csv_files = [args.csv_file]
+    print(csv_files)
+    preds = load_pred(fname for fname in csv_files)
+    labels = load_labels(args.data_file)
+    logloss, score = evaluate(preds, labels)
     print("Logloss:", logloss)
     print("Score:", score)
     print()

@@ -38,6 +38,8 @@ parser.add_argument('--data_dir', type=str, default='/data2/army_challenge/train
                     help='an integer for the accumulator')
 parser.add_argument('--data_file', type=str, default=None,
                     help='an integer for the accumulator')
+parser.add_argument('--out_name', type=str, default=None,
+                    help='an integer for the accumulator')
 parser.add_argument('--data_format', type=str, default="channels_last",
                     help='an integer for the accumulator')
 parser.add_argument('--mode', type=str, default='test')
@@ -93,7 +95,10 @@ elif os.path.isdir(args.pskmodel):
     print(p_path)
 else:
     p_path = [args.pskmodel]
-output_path = BASEDIR+"TestSet{}Predictions.csv".format(args.test)
+if args.out_name is None:
+    output_path = BASEDIR+"TestSet{}Predictions.csv".format(args.test)
+else:
+    output_path = args.out_name
 
 if args.mode == 'test':
     if args.data_file is None:
