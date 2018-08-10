@@ -31,7 +31,7 @@ parser.add_argument('--lrpatience', type=int, default=8)
 parser.add_argument('--minlr', type=float, default=0.00001)
 parser.add_argument('--perturb', type=float, default=0.2)
 parser.add_argument('--noiseclip', type=float, default=1.)
-parser.add_argument('--test_file', type=int, default=14)
+parser.add_argument('--test_file', type=int, default=-1)
 parser.add_argument('--num_files', type=int, default=15)
 parser.add_argument('--mod_group', type=int, default=1)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/army_challenge/training_data/',
@@ -309,51 +309,11 @@ for m in range(args.m0, args.m0+args.num_models):
 
               keras.callbacks.TensorBoard(log_dir=args.train_dir+'/logs{}'.format(m), histogram_freq=0, batch_size=args.batch_size, write_graph=False)
              ]) 
-        model.load_weights(filepath)
 
     except(StopIteration):
         pass
+    model.load_weights(filepath)
     model.save(model_path)  
     
     
-    #Print test accuracies
-
-    acc = {}
-    scores = {}
-    snrs = np.arange(-15,15, 5)
-
-    classes = testdata.modTypes
-
-    print("classes ", classes)
-    for snr in testdata.snrValues:
-
-        # extract classes @ SNR
-        snrThreshold_lower = snr
-        snrThreshold_upper = snr+5
-        snr_bounded_test_indicies = testdata.get_indicies_withSNRthrehsold(testdata.test_idx, snrThreshold_lower, snrThreshold_upper)
-
-        test_X_i = testdata.signalData[snr_bounded_test_indicies]
-        test_Y_i = testdata.oneHotLabels[snr_bounded_test_indicies]    
-        
-        #sc, ac = model.evaluate(test_X_i, test_Y_i, batch_size=256)
-        # estimate classes
-        test_Y_i_hat = model.predict(test_X_i)
-        conf = np.zeros([len(classes),len(classes)])
-        confnorm = np.zeros([len(classes),len(classes)])
-        for i in range(0,test_X_i.shape[0]):
-            j = list(test_Y_i[i,:]).index(1)
-            k = int(np.argmax(test_Y_i_hat[i,:]))
-            conf[j,k] = conf[j,k] + 1
-        for i in range(0,len(classes)):
-            confnorm[i,:] = conf[i,:] / np.sum(conf[i,:])
-        # plt.figure(figsize=(10,10))
-        # plot_confusion_matrix(confnorm, labels=classes, title="ConvNet Confusion Matrix (SNR=%d)"%(snr))
-
-        cor = np.sum(np.diag(conf))
-        ncor = np.sum(conf) - cor
-        print("SNR", snr, "Overall Accuracy: ", cor / (cor+ncor), "Out of", len(snr_bounded_test_indicies))
-        acc[snr] = 1.0*cor/(cor+ncor)
-
-
-
     print("Done model {} out of {}".format(m, args.num_models))
