@@ -3,13 +3,13 @@ from data_loader import *
 
 import argparse
 
-#parser = argparse.ArgumentParser(description='Process')
-#parser.add_argument('--csv_file', type=str, default=None,
-#                    help='Name and path of csv prediction file.')
-#parser.add_argument('--data_file', type=str, default=None,
-#                    help='Name and path of data file that has the labels.')
+parser = argparse.ArgumentParser(description='Process')
+parser.add_argument('--csv_file', type=str, default=None,
+                    help='Name and path of csv prediction file.')
+parser.add_argument('--data_file', type=str, default=None,
+                    help='Name and path of data file that has the labels.')
 
-def score(csv_file,data_file)
+def evaluate(csv_file,data_file)
 #    args = parser.parse_args()
 
 #    csv_file = args.csv_file
@@ -59,9 +59,10 @@ def score(csv_file,data_file)
     logloss = -np.sum(preds) / sample_size
     score = 100/(1+logloss)
     
-    return logloss
-
-    #print()
-    #print("Logloss:", logloss)
-    #print("Score:", score)
-    #print()
+    return logloss, score
+if __name__ == '__main__':
+    
+    logloss, score = evaluate(args.csv_file, args.data_file)
+    print("Logloss:", logloss)
+    print("Score:", score)
+    print()
