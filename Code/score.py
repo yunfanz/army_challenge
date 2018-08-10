@@ -70,8 +70,9 @@ if __name__ == '__main__':
     else:
         csv_files = [args.csv_file]
     print(csv_files)
-    preds = load_pred(fname for fname in csv_files)
-    labels = load_labels(args.data_file)
+    preds = np.concatenate([load_pred(fname) for fname in csv_files], axis=0)
+    print(preds.shape)
+    labels = load_label(args.data_file)
     logloss, score = evaluate(preds, labels)
     print("Logloss:", logloss)
     print("Score:", score)
