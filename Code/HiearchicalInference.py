@@ -241,9 +241,10 @@ else:
     qampskpreds = ens_predictions(qp_path,testdata)
     qampreds = ens_predictions(q_path,testdata) 
     pskpreds = ens_predictions(p_path,testdata) 
-    if pskpreds.shape[1]>2: #can use group 6 model
-        pskpreds = pskpreds[:,:2]
-        pskpreds /= np.sum(pskpreds, axis=1, keepdims=True)
+    if pskpreds is not None:
+        if pskpreds.shape[1]>2: #can use group 6 model
+           pskpreds = pskpreds[:,:2]
+           pskpreds /= np.sum(pskpreds, axis=1, keepdims=True)
     for i in range(0,preds.shape[0]):
         k = int(np.argmax(preds[i,:]))
         if s_path is not None and k in mods:
