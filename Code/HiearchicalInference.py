@@ -21,7 +21,7 @@ parser.add_argument('--all_snr', type=bool, default=False)
 parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--test', type=int, default=1)
 parser.add_argument('--eps', type=float, default=1.e-15)
-parser.add_argument('--subweight', type=float, default=0.8)
+parser.add_argument('--subweight', type=float, default=1.)
 parser.add_argument('--qampskweight', type=float, default=1.)
 parser.add_argument('--qamweight', type=float, default=1.)
 parser.add_argument('--pskweight', type=float, default=1.)
@@ -55,7 +55,7 @@ mods = np.array([1,9,10,11,12,13])
 AMmods = np.array([4,5])
 QAMmods = np.array([6,7,20,21,22])
 PSKmods = np.array([0,3])
-QAMPSKmods = np.concatenate([QAMmods, PSKmods])
+QAMPSKmods = np.array([0,3,6,7,20,21,22])
 BASEDIR = args.train_dir
 DATABASE = args.data_dir
 if args.model is None:
@@ -241,15 +241,18 @@ else:
     qampskpreds = ens_predictions(qp_path,testdata)
     qampreds = ens_predictions(q_path,testdata) 
     pskpreds = ens_predictions(p_path,testdata) 
+    if pskpreds.shape[1]>2: #can use group 6 model
+        pskpreds = pskpreds[:,:2]
+        pskpreds /= np.sum(pskpreds, axis=1, keepdims=True)
     for i in range(0,preds.shape[0]):
         k = int(np.argmax(preds[i,:]))
         if s_path is not None and k in mods:
             preds[i], k = hiarch_update(preds[i], subpreds[i], mods, args.subweight)
-        elif qp_path is not None and k in QAMPSKmods:
+        if qp_path is not None and k in QAMPSKmods:
             preds[i], k = hiarch_update(preds[i], qampskpreds[i], QAMPSKmods, args.qampskweight)
-        elif q_path is not None and k in QAMmods:
+        if q_path is not None and k in QAMmods:   #still further update group 4 inside of group 6
             preds[i], k = hiarch_update(preds[i], qampreds[i], QAMmods, args.qamweight)
-        elif p_path is not None and k in PSKmods:
+        if p_path is not None and k in PSKmods:
             preds[i], k = hiarch_update(preds[i], pskpreds[i], PSKmods, args.pskweight)
     preds = np.where(preds>EPS, preds, EPS)
     preds = np.where(preds<1-EPS, preds, 1-EPS)
