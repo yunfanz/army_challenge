@@ -155,9 +155,9 @@ def discriminate(x, nhidden=128, dr=0.5):
     H = Conv1D(filters=512, kernel_size=5, strides=2, activation='relu')(x)
     #H = LeakyReLU(0.2)(H)
     H = Dropout(dr)(H)
-    H = Conv1D(filters=512, kernel_size=3, strides=2,  activation='relu')(H)
+    #H = Conv1D(filters=512, kernel_size=3, strides=2,  activation='relu')(H)
     # H = LeakyReLU(0.2)(H)
-    H = Dropout(dr)(H)
+    #H = Dropout(dr)(H)
     H = Flatten()(x)
     H = Dense(256, activation='relu')(H)
     #H = LeakyReLU(0.2)(H)
@@ -331,7 +331,7 @@ for m in range(args.m0, args.m0+args.num_models):
             dislr = K.eval(discriminator.optimizer.lr)
             ganlr = K.eval(GAN.optimizer.lr)
             if meanc_loss <= epochc_loss:
-                if (lr > 5.e-5 and dislr > 1.e-5 and ganlr > 1.e-5):
+                if (lr >= 1.e-4 and dislr > 1.e-5 and ganlr > 1.e-5):
                     print("reducing learning rate from", lr, dislr, ganlr)
                     K.set_value(model.optimizer.lr, 0.1*lr)
                     if ganlr < 1.e-4:

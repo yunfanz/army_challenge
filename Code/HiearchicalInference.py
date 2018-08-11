@@ -1,6 +1,7 @@
 import numpy as np
 from data_loader import *
 from utils import *
+from score import get_pred
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.pyplot import figure
@@ -232,7 +233,10 @@ if args.mode == 'test':
 
 
 else:
-    preds = ens_predictions(m_path,testdata) 
+    if m_path.endswith('.csv'):
+        preds = get_pred(m_path)
+    else:
+        preds = ens_predictions(m_path,testdata) 
     preds[:,19] = 0 #set PI4QPSK to 0
     if args.test == 1:
         preds[:,11]=0  #set the FM to 0
