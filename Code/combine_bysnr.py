@@ -1,14 +1,22 @@
 from score import *
+import argparse
+parser = argparse.ArgumentParser(description='Process')
+parser.add_argument('--csv_path1', type=str, default='./anom/test2_1262gp0.csv',
+                    help='Name and path of csv prediction file.')
+parser.add_argument('--csv_path2', type=str, default='./anom/test2_1121gp0.csv',
+                    help='Name and path of csv prediction file.')
+parser.add_argument('--snr_path', type=str, nargs='+',
+                    help='Name and path of data file that has the labels.')
+parser.add_argument('--out_path', type=str, default='./anom/TestSet2Predictions.csv',
+                    help='Name and path of data file that has the labels.')
+args = parser.parse_args()
 
-csv_path1 = '/home/yzhang/Projects/army_challenge/Code/anom/test2_1262gp0.csv'
-csv_path2 = '/home/yzhang/Projects/army_challenge/Code/anom/test2_1121gp0.csv'
-
-snr = np.load('/datax/yzhang/test_data/snr_preds2.npy')
-snr = np.argmax(snr, axis=1)
+snr = np.concatenate([np.load(path) for path in args.snr_path], axis=0)
+#snr = np.argmax(snr, axis=1)
 
 snr_inds = [np.argwhere(snr==S).squeeze() for S in range(6)]
-pred1 = get_pred(csv_path1)
-pred2 = get_pred(csv_path2)
+pred1 = get_pred(args.csv_path1)
+pred2 = get_pred(args.csv_path2)
 lambs = [0.75,0.75,0.85,0.9,0.95,0.95]
 
 
@@ -36,7 +44,7 @@ for i in range(len(CLASSES) - 1):
     header += CLASSES[i]+','
 header += CLASSES[-1] + '\n'
 
-output_path = "TestSet2Predictions.csv"
+output_path = args.out_path
 
 f=open(output_path, 'w')
 f.write(header)
