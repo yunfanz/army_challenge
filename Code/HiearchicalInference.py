@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser(description='Process')
 parser.add_argument('--train_dir', type=str, default='./log/model_9/',
                     help='an integer for the accumulator')
 parser.add_argument('--all_snr', type=bool, default=False)
+parser.add_argument('--autoblock', type=bool, default=False)
 parser.add_argument('--ngpu', type=int, default=1)
 parser.add_argument('--test', type=int, default=1)
 parser.add_argument('--eps', type=float, default=1.e-15)
@@ -134,7 +135,7 @@ def ens_predictions(paths, test_X):
     if paths is None:
         return None
     if args.ngpu>1:
-        ids = range(min(len(m_path), args.ngpu))
+        ids = range(min(len(paths), args.ngpu))
         manager = Manager()
         idQueue = manager.Queue()
         for i in ids:
@@ -233,14 +234,15 @@ if args.mode == 'test':
 
 
 else:
-    if m_path.endswith('.csv'):
-        preds = get_pred(m_path)
+    if m_path[0].endswith('.csv'):
+        preds = get_pred(m_path[0])
     else:
-        preds = ens_predictions(m_path,testdata) 
-    preds[:,19] = 0 #set PI4QPSK to 0
-    if args.test == 1:
-        preds[:,11]=0  #set the FM to 0
-        preds[:,12]=0
+        preds = ens_predictions(m_path,testdata)
+    if args.autoblock: 
+        preds[:,19] = 0 #set PI4QPSK to 0
+        if args.test == 1:
+            preds[:,11]=0  #set the FM to 0
+            preds[:,12]=0
     subpreds = ens_predictions(s_path,testdata) 
     qampskpreds = ens_predictions(qp_path,testdata)
     qampreds = ens_predictions(q_path,testdata) 
@@ -261,13 +263,14 @@ else:
             preds[i], k = hiarch_update(preds[i], pskpreds[i], PSKmods, args.pskweight)
     preds = np.where(preds>EPS, preds, EPS)
     preds = np.where(preds<1-EPS, preds, 1-EPS)
-    preds[:,19] = 0 #set PI4QPSK to 0
-    if args.test == 1:
-        preds[:,11]=0  #set the FM to 0
-        preds[:,12]=0
+    if args.autoblock: 
+        preds[:,19] = 0 #set PI4QPSK to 0
+        if args.test == 1:
+            preds[:,11]=0  #set the FM to 0
+            preds[:,12]=0
     preds /= np.sum(preds, axis=1, keepdims=True)
-    # save with 15 decimals
-    fmt = '%1.0f' + preds.shape[1] * ',%1.15f'
+    # save with 8 decimals
+    fmt = '%1.0f' + preds.shape[1] * ',%1.8f'
     id_col = np.arange(1, testdata.shape[0] + 1)
     preds = np.insert(preds, 0, id_col, axis = 1)
     
