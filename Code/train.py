@@ -74,6 +74,7 @@ load_mods = [CLASSES[mod] for mod in mods]
 for i in range(args.num_files):
     if i in [ args.test_file]: continue
     data_file = BASEDIR + "part_" + str(i) + ".dat"
+    #data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
     if not args.sep:
         data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=load_mods))
     else:
@@ -81,7 +82,8 @@ for i in range(args.num_files):
 
 testdata = None
 if args.test_file > 0:
-    data_file = BASEDIR + "part_" + str(args.test_file) + ".dat"
+    #data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
+    data_file = BASEDIR + "part_" + str(i) + ".dat"
     testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=load_mods)
 
 
@@ -117,9 +119,10 @@ def out_tower(x, dr=0.5, reg=-1):
     out = Activation('softmax')(logits)
     return out
 
-def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,2,3,1], features=[1,1,1,1,1]):
+def googleNet(x, data_format='channels_last', num_classes=24,num_layers=[1,1,2,1], features=[1,1,1,1,1]):
     
     x = Reshape(in_shp + (1,), input_shape=in_shp)(x)
+    x = Lambda(lambda x: x * 1.e3)(x)
     x = Conv2D(filters=64*features[0], kernel_size=[2,7], strides=[2,2], data_format=data_format, padding='same', activation='relu')(x)
     x = MaxPooling2D([1, 3], strides=[1,2], padding='same')(x)
     for dep in range(num_layers[0]):
@@ -176,11 +179,12 @@ for m in range(args.m0, args.m0+args.num_models):
         val_batches = get_val_batches(val_gen)
         train_data = data.copy() 
         train_data.pop(m)
-        tsteps = len(train_data) * 12000 * num_classes //args.batch_size 
-        tsteps_per_file = 12000 * num_classes * 1 // args.batch_size
+        tsteps = len(train_data) * 22000 * num_classes //args.batch_size 
+        tsteps_per_file = 22000 * num_classes * 1 // args.batch_size
         train_batches = get_train_batches_small_memory(train_data, train_batch_size=args.batch_size, number_of_epochs=args.epochs,
                                                        tsteps_per_file=tsteps_per_file,load_mods=load_mods,
                                                        noise=args.noise, perturbp=args.perturbp)
+        #import IPython; IPython.embed()
         
     in_shp = (2, args.crop_to)
     model_path = args.train_dir+'model{}.h5'.format(m)
