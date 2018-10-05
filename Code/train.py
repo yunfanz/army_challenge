@@ -36,7 +36,7 @@ parser.add_argument('--stoppatience', type=int, default=8)
 parser.add_argument('--minlr', type=float, default=0.00001)
 parser.add_argument('--noiseclip', type=float, default=100.)
 parser.add_argument('--test_file', type=int, default=-1)
-parser.add_argument('--num_files', type=int, default=15,
+parser.add_argument('--num_files', type=int, default=10,
                     help='total number of files to use for training')
 parser.add_argument('--mod_group', type=int, default=0)
 parser.add_argument('--data_dir', type=str, default='/datax/yzhang/training_data/',
@@ -53,12 +53,13 @@ args = parser.parse_args()
 args.lr  = args.lr * args.ngpu * (args.batch_size / 512)
 args.batch_size = args.batch_size * args.ngpu
 
-CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
- 'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
- 'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
- 'QAM32', 'QAM64', 'QPSK']
-
-all_mods = [np.arange(24), np.array([1,9,10,11,12,13]), 
+# CLASSES = ['16PSK', '2FSK_5KHz', '2FSK_75KHz', '8PSK', 'AM_DSB', 'AM_SSB', 'APSK16_c34',
+#  'APSK32_c34', 'BPSK', 'CPFSK_5KHz', 'CPFSK_75KHz', 'FM_NB', 'FM_WB',
+#  'GFSK_5KHz', 'GFSK_75KHz', 'GMSK', 'MSK', 'NOISE', 'OQPSK', 'PI4QPSK', 'QAM16',
+#  'QAM32', 'QAM64', 'QPSK']
+CLASSES = ['8PSK', 'AM-DSB', 'AM-SSB', 'BPSK', 'CPFSK', 'GFSK', 'PAM4',
+       'QAM16', 'QAM64', 'QPSK', 'WBFM']
+all_mods = [np.arange(len(CLASSES)), np.array([1,9,10,11,12,13]), 
             np.array([4,5]), np.array([1,9]), np.array([6,7,20,21,22]), np.array([0,3]), np.array([0,3,6,7,20,21,22])]
 mods = all_mods[args.mod_group]
 num_classes = mods.size
@@ -72,7 +73,7 @@ data = []
 load_mods = [CLASSES[mod] for mod in mods]
 for i in range(args.num_files):
     if i in [ args.test_file]: continue
-    data_file = BASEDIR + "training_data_chunk_" + str(i) + ".pkl"
+    data_file = BASEDIR + "part_" + str(i) + ".dat"
     if not args.sep:
         data.append(LoadModRecData(data_file, 1., 0., 0., load_mods=load_mods))
     else:
@@ -80,7 +81,7 @@ for i in range(args.num_files):
 
 testdata = None
 if args.test_file > 0:
-    data_file = BASEDIR + "training_data_chunk_" + str(args.test_file) + ".pkl"
+    data_file = BASEDIR + "part_" + str(args.test_file) + ".dat"
     testdata = LoadModRecData(data_file, 0., 0., 1., load_mods=load_mods)
 
 
